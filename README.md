@@ -59,4 +59,8 @@ npm run test:e2e
 
 ## 许可证
 
-[MIT](LICENSE)。保留原始版权声明；依赖使用各自许可证。弹幕依赖的必要补丁位于 `patches/`，第三方说明位于 `public/third-party-danmaku.txt`。
+本项目整体采用 [GNU AGPL-3.0](LICENSE)（SPDX：`AGPL-3.0-only`）。分发本项目及其修改版，或通过网络向用户提供修改版服务时，应按协议履行保留许可、提供对应源码等义务；完整条款以 `LICENSE` 为准。
+
+原 BWatch 迁入代码的 MIT 版权与许可告知保留在 [NOTICE](NOTICE)，第三方依赖继续使用各自许可证。网站和扩展安装包均附带 `LICENSE`、`NOTICE` 与 `THIRD_PARTY_LICENSES.txt`；项目源码和构建脚本可从[本仓库](https://github.com/dumpling233/bwatch-monitor)获取。弹幕依赖的必要补丁位于 `patches/`，原第三方说明保留在 `public/third-party-danmaku.txt`。
+
+`licenses/` 保存部分 npm 包缺失的上游许可正文离线副本，构建时生成第三方许可合集，无需联网获取。

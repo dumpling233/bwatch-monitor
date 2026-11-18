@@ -4,6 +4,14 @@ dist/
 extension/.output/
 extension/.wxt/
 public/downloads/
+# Generated legal assets, prepared from tracked license sources before builds.
+/public/LICENSE
+/public/NOTICE
+/public/THIRD_PARTY_LICENSES.txt
+/extension/public/LICENSE
+/extension/public/NOTICE
+/extension/public/THIRD_PARTY_LICENSES.txt
+/extension/public/third-party-danmaku.txt
 playwright-report/
 test-results/
 coverage/

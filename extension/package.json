@@ -1,14 +1,19 @@
 {
   "name": "bwatch-monitor-extension",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "scripts": {
+    "predev": "node ../scripts/prepare-license-notices.mjs",
     "dev": "wxt",
+    "prebuild": "node ../scripts/prepare-license-notices.mjs",
     "build": "wxt build",
+    "prebuild:local": "node ../scripts/prepare-license-notices.mjs",
     "build:local": "wxt build --mode development",
+    "prezip": "node ../scripts/prepare-license-notices.mjs",
     "zip": "wxt zip",
+    "prezip:local": "node ../scripts/prepare-license-notices.mjs",
     "zip:local": "wxt zip --mode development",
     "typecheck": "wxt prepare && tsc --noEmit",
     "test": "tsx --test test/*.test.ts"

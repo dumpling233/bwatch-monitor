@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { LOCAL_LOGIN_CHANNEL } from '../shared/localLogin';
-import { MONITOR_URL } from '../shared/site';
+import { MONITOR_URL, PROJECT_VERSION } from '../shared/site';
 
 test.beforeEach(async ({ page }) => {
   // Keep the real origin/path contract while serving the production build locally.
@@ -27,7 +27,7 @@ async function forbidBackend(page: Page) {
 }
 
 async function anonymousCompanion(page: Page) {
-  await page.addInitScript(({ channel }) => {
+  await page.addInitScript(({ channel, version }) => {
     const calls: string[] = [];
     Object.assign(window, { companionCalls: calls });
     window.addEventListener('message', event => {
@@ -36,7 +36,7 @@ async function anonymousCompanion(page: Page) {
       calls.push(request.action);
       let result: unknown;
       if (request.action === 'HELLO') result = {
-        version: 1, extensionVersion: '0.1.0', runtimeEpoch: 'standalone-test-runtime', installationType: 'development',
+        version: 1, extensionVersion: version, runtimeEpoch: 'standalone-test-runtime', installationType: 'development',
         capabilities: ['account', 'playback', 'session', 'danmaku', 'chat', 'profile', 'unified-authorization', 'audio-playback',
           'following', 'following-status', 'following-room-info', 'medals', 'medal-room-context', 'public-room', 'public-playback', 'anonymous-danmaku']
       };
@@ -60,7 +60,7 @@ async function anonymousCompanion(page: Page) {
         : { ok: true, result };
       window.postMessage({ channel, direction: 'response', requestId: request.requestId, ...response }, window.location.origin);
     });
-  }, { channel: LOCAL_LOGIN_CHANNEL });
+  }, { channel: LOCAL_LOGIN_CHANNEL, version: PROJECT_VERSION });
 }
 
 test('static entry works with no companion and no application backend', async ({ page }) => {
@@ -128,13 +128,14 @@ test('file installation downloads the verified Chromium ZIP on the Pages path', 
   await page.getByRole('button', { name: '安装浏览器扩展', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '安装扩展与连接 B站账号' });
   await expect(dialog.getByRole('textbox', { name: 'Chrome 扩展管理页地址' })).toHaveValue('chrome://extensions');
-  const link = dialog.getByRole('link', { name: /^下载 .*v0\.1\.0$/ });
+  const link = dialog.getByRole('link', { name: new RegExp('^下载 .*v' + PROJECT_VERSION.replaceAll('.', '\\.') + '$') });
   await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute('href', /\/bwatch-monitor\/downloads\/bwatch-monitor-extension-0\.1\.0\.zip$/);
+  const filename = `bwatch-monitor-extension-${PROJECT_VERSION}.zip`;
+  await expect(link).toHaveAttribute('href', new URL(MONITOR_URL).pathname + 'downloads/' + filename);
   const downloadPromise = page.waitForEvent('download');
   await link.click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe('bwatch-monitor-extension-0.1.0.zip');
+  expect(download.suggestedFilename()).toBe(filename);
   expect(await download.failure()).toBeNull();
   await expect(dialog.getByText('安装包已校验。如果浏览器未开始保存，请点击“再次保存”。')).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('installation.png'), fullPage: true });
