@@ -1,0 +1,6 @@
+html.bwatch-approval body { width: 100%; min-width: 0; max-width: 520px; margin: 0 auto; }
+html.bwatch-approval main { width: 100%; min-width: 0; padding: clamp(16px, 5vw, 24px); }
+.account-heading { margin-top: 16px; }
+.approval-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.approval-actions button { margin-top: 0; }
+.login-link { display: inline-block; margin-top: 14px; }

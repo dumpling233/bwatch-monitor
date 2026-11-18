@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN" class="bwatch-popup"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BWatch Monitor Companion</title></head>
+<body><main>
+  <header><span class="brand-mark" aria-hidden="true">B</span><div><h1 id="extension-name">BWatch Monitor Companion</h1><p class="subtitle">为 monitor 增强直播体验</p></div></header>
+  <div class="popup-content">
+  <section id="audio-permission-card" class="card" aria-labelledby="audio-permission-title" hidden>
+    <div class="section-heading"><h2 id="audio-permission-title">省流量收听</h2><span class="badge">需要浏览器允许</span></div>
+    <p class="muted">扩展需要访问 B站音频服务的网站权限。允许后可直接收听纯音频，无需登录或授权 B站账号。</p>
+    <button id="allow-audio" type="button" class="primary">允许省流量收听</button>
+  </section>
+  <section class="card" aria-labelledby="site-title"><div class="section-heading"><h2 id="site-title">B站账号授权</h2><span id="grant-badge" class="badge">检查中</span></div>
+    <p id="origin" class="origin"></p><p id="grant-status" data-testid="grant-status" role="status">正在检查当前页面…</p>
+    <p id="grant-description" class="muted"></p>
+    <div id="initialization" hidden><p class="muted">授权后，本站会使用账号取流、接收登录弹幕，按需显示关注的直播间和粉丝勋章，并允许你主动切换佩戴的勋章、发送文字和已解锁表情。</p></div>
+    <button id="authorize" type="button" class="primary" hidden>连接并授权</button>
+    <button id="monitor" type="button" class="primary" hidden>打开 monitor</button>
+  </section>
+  <section id="account-card" class="card" aria-labelledby="account-title" hidden><div class="section-heading"><h2 id="account-title">B站账号</h2><span id="account-badge" class="badge">检查中</span></div>
+    <p id="account-status" data-testid="account-status" role="status"></p><p id="account-description" class="muted"></p>
+    <button id="check" type="button">重新检查</button>
+  </section>
+  <p id="feedback" class="feedback" role="status" hidden></p>
+  <p class="note">仅听声音时自动尝试省流量音频，无需登录。账号凭据仅在本机；撤销授权只停止账号功能，不会退出 B站，也不会自动发送消息。</p>
+  </div>
+  <footer class="footer-actions"><button id="login" type="button" class="text-button">打开 B站</button><button id="revoke" type="button" class="text-button danger" hidden>撤销本站授权</button></footer>
+</main><script type="module" src="./main.ts"></script></body></html>

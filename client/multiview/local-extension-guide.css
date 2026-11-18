@@ -1,0 +1,43 @@
+
+.mv-extension-guide { display:grid; min-width:0; gap:20px; color:var(--text); font-size:13px; line-height:1.65; }
+.mv-extension-guide p { margin:0; overflow-wrap:anywhere; }
+.mv-extension-guide-choice { display:grid; min-width:0; gap:8px; }
+.mv-extension-guide-heading { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0; font-size:13px; font-weight:600; line-height:1.6; }
+.mv-extension-guide-heading > small { margin-left:auto; font-size:11px; font-weight:400; color:var(--muted); }
+.mv-extension-guide .segmented-control { justify-self:start; max-width:100%; }
+.mv-extension-guide .segmented-control-option { min-width:0; padding:7px 11px; font-size:12px; }
+.mv-extension-guide a.action-button { justify-self:start; }
+.mv-extension-guide a.action-button[aria-disabled="true"] { opacity:.6; cursor:wait; }
+.mv-extension-guide-choice .segmented-control { width:100%; }
+.mv-extension-guide-choice .segmented-control-option { flex:1 1 0; }
+.mv-extension-guide-details { display:grid; min-width:0; gap:14px; padding-top:16px; border-top:1px solid var(--border); }
+.mv-extension-guide-instructions { min-width:0; animation:mv-extension-instructions-in .16s ease-out; }
+.mv-extension-guide-store { display:grid; gap:9px; }
+.mv-extension-guide-details ol { display:grid; gap:14px; margin:0; padding-left:22px; }
+.mv-extension-guide-details li { min-width:0; padding-left:3px; }
+.mv-extension-guide-details li::marker { color:var(--muted); font-size:12px; }
+.mv-extension-guide-details li > strong { display:block; margin-bottom:3px; font-size:13px; }
+.mv-extension-guide-details li > p { color:var(--muted); font-size:12px; }
+.mv-extension-guide-details li > .action-button { display:flex; width:fit-content; max-width:100%; margin:8px 0; }
+.mv-extension-guide-muted { color:var(--muted); font-size:12px; }
+.mv-extension-guide-callout { display:grid; gap:6px; padding:10px 12px; border-left:2px solid var(--accent); background:rgba(128,128,128,.06); color:var(--muted); font-size:12px; }
+.mv-extension-guide-callout > a { display:inline-flex; align-items:center; gap:5px; justify-self:start; max-width:100%; }
+.mv-extension-guide-callout > a > svg { flex:none; }
+.mv-extension-guide-disclosure { display:inline-flex; align-items:center; gap:6px; justify-self:start; padding:0; border:0; background:none; color:var(--accent); font:inherit; font-size:12px; line-height:1.7; text-align:left; cursor:pointer; }
+.mv-extension-guide-disclosure > svg { flex:none; transition:transform .18s ease; }
+.mv-extension-guide-disclosure > svg[data-open="true"] { transform:rotate(180deg); }
+.mv-extension-guide-disclosure:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:2px; }
+.mv-extension-guide-manual { display:grid; min-width:0; gap:12px; }
+.mv-extension-guide-manual code { padding:1px 4px; border-radius:4px; background:rgba(128,128,128,.12); font-size:12px; }
+.mv-extension-guide-address { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:7px; }
+.mv-extension-guide-address input { flex:1 1 160px; width:0; min-width:0; max-width:100%; padding:7px 8px; border:1px solid var(--border); border-radius:7px; background:var(--panel); color:var(--text); font-family:monospace; font-size:12px; }
+.mv-extension-guide-address input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.mv-extension-guide-address .action-button { flex:none; min-height:30px; padding:6px 9px; font-size:11px; }
+.mv-extension-guide-copy-feedback { flex-basis:100%; min-width:0; font-size:11px; color:var(--muted); }
+.mv-local-installation-content { display:grid; min-width:0; gap:14px; }
+.mv-local-installation-content:focus { outline:none; }
+.mv-local-installation-target { margin:0; color:var(--muted); font-size:12px; }
+.mv-local-login-guide .feature-guide-heading h2 { text-wrap:balance; }
+@keyframes mv-extension-instructions-in { from { opacity:.45; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:480px) { .mv-extension-guide .segmented-control { justify-self:stretch; min-width:0; } .mv-extension-guide .segmented-control-option { flex:1 1 0; padding:7px 3px; font-size:11px; } }
+@media (prefers-reduced-motion:reduce) { .mv-extension-guide-disclosure > svg { transition:none; } .mv-extension-guide-instructions { animation:none; } }

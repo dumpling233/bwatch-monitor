@@ -1,0 +1,207 @@
+diff --git a/node_modules/@laplace.live/ws/dist/browser.js b/node_modules/@laplace.live/ws/dist/browser.js
+index b633180..b578d0f 100644
+--- a/node_modules/@laplace.live/ws/dist/browser.js
++++ b/node_modules/@laplace.live/ws/dist/browser.js
+@@ -2058,7 +2058,8 @@ let makeBrotliDecode = () => {
+ 		}
+ 		let totalOutput = 0;
+ 		let chunks = [];
+-		while (true) {
++		const maxOutput = Math.min(options?.maxOutput ?? 8388608, 8388608);
++		try { while (true) {
+ 			let chunk = /* @__PURE__ */ new Int8Array(16384);
+ 			chunks.push(chunk);
+ 			s.output = chunk;
+@@ -2067,9 +2068,9 @@ let makeBrotliDecode = () => {
+ 			s.outputUsed = 0;
+ 			decompress(s);
+ 			totalOutput += s.outputUsed;
++			if (totalOutput > maxOutput) throw new Error("Brotli output size limit");
+ 			if (s.outputUsed < 16384) break;
+-		}
+-		close(s);
++		} } finally { close(s); }
+ 		let result = new Int8Array(totalOutput);
+ 		let offset = 0;
+ 		for (let i = 0; i < chunks.length; ++i) {
+@@ -2089,14 +2090,35 @@ let makeBrotliDecode = () => {
+ let BrotliDecode = makeBrotliDecode();
+ //#endregion
+ //#region src/inflate/browser.ts
+-const inflateAsync = async (d) => {
++const inflateAsync = async (d, maxOutput = 8388608) => {
+ 	const ds = new DecompressionStream("deflate");
+ 	const writer = ds.writable.getWriter();
+-	writer.write(d);
+-	writer.close();
+-	return new Uint8Array(await new Response(ds.readable).arrayBuffer());
++	const reader = ds.readable.getReader();
++	const writing = (async () => { await writer.write(d); await writer.close(); })();
++	// A rejected writer must be observed even when a read fails first.
++	writing.catch(() => {});
++	let size = 0;
++	const chunks = [];
++	try {
++		while (true) {
++			const { value, done } = await reader.read();
++			if (done) break;
++			size += value.byteLength;
++			if (size > Math.min(maxOutput, 8388608)) throw new Error("Deflate output size limit");
++			chunks.push(value);
++		}
++		await writing;
++		const output = new Uint8Array(size);
++		let offset = 0;
++		for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.byteLength; }
++		return output;
++	} catch (error) {
++		reader.cancel().catch(() => {});
++		writer.abort().catch(() => {});
++		throw error;
++	} finally { reader.releaseLock(); }
+ };
+-const brotliDecompressAsync = (d) => Uint8Array.from(BrotliDecode(Int8Array.from(d)));
++const brotliDecompressAsync = (d, maxOutput = 8388608) => Uint8Array.from(BrotliDecode(Int8Array.from(d), { maxOutput }));
+ const inflates = {
+ 	inflateAsync,
+ 	brotliDecompressAsync
+diff --git a/node_modules/@laplace.live/ws/dist/ws-YC6RjnTw.js b/node_modules/@laplace.live/ws/dist/ws-YC6RjnTw.js
+index 4696a36..29c5707 100644
+--- a/node_modules/@laplace.live/ws/dist/ws-YC6RjnTw.js
++++ b/node_modules/@laplace.live/ws/dist/ws-YC6RjnTw.js
+@@ -180,13 +180,18 @@ function concatUint8Arrays(arrs) {
+ 	}
+ 	return result;
+ }
+-const cutBuffer = (buffer) => {
++// BWatch: reject malformed packets before slicing or entering a recursive decoder.
++const cutBuffer = (buffer, budget) => {
+ 	const bufferPacks = [];
+ 	const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+-	let size;
+-	for (let i = 0; i < buffer.length; i += size) {
+-		size = view.getInt32(i);
+-		bufferPacks.push(buffer.slice(i, i + size));
++	for (let i = 0; i < buffer.length;) {
++		if (buffer.length - i < 16) throw new Error("Invalid packet header");
++		const size = view.getUint32(i);
++		const header = view.getUint16(i + 4);
++		if (header < 16 || size < header || size > buffer.length - i) throw new Error("Invalid packet length");
++		if (++budget.packets > 4096) throw new Error("Packet count limit");
++		bufferPacks.push(buffer.subarray(i, i + size));
++		i += size;
+ 	}
+ 	return bufferPacks;
+ };
+@@ -209,31 +214,45 @@ const cutBuffer = (buffer) => {
+ *          array of `{ buf, type, protocol, data }` packets.
+ */
+ const makeDecoder = ({ inflateAsync, brotliDecompressAsync }) => {
+-	const decoder = async (buffer) => {
+-		return (await Promise.all(cutBuffer(buffer).map(async (buf) => {
++	const decoder = async (buffer, depth = 0, budget = { bytes: 0, packets: 0 }) => {
++		if (buffer.byteLength < 16) throw new Error("Invalid packet header");
++		if (depth === 0 && buffer.byteLength > 2097152) throw new Error("Frame size limit");
++		if (depth > 4) throw new Error("Compression depth limit");
++		const result = [];
++		for (const buf of cutBuffer(buffer, budget)) {
+ 			const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+-			const body = buf.slice(16);
+-			const protocol = view.getInt16(6);
++			const body = buf.subarray(view.getUint16(4));
++			const protocol = view.getUint16(6);
+ 			const operation = view.getInt32(8);
++			if (protocol > 3) throw new Error("Unsupported packet protocol");
++
++			if (protocol === 2 || protocol === 3) {
++				if (depth >= 4) throw new Error("Compression depth limit");
++				const remaining = 8388608 - budget.bytes;
++				if (remaining <= 0) throw new Error("Decompression size limit");
++				const inflated = await (protocol === 2 ? inflateAsync(body, remaining) : brotliDecompressAsync(body, remaining));
++				budget.bytes += inflated.byteLength;
++				if (budget.bytes > 8388608) throw new Error("Decompression size limit");
++				result.push(...await decoder(inflated, depth + 1, budget));
++				continue;
++			}
+ 			let type = "unknow";
+ 			if (operation === 3) type = "heartbeat";
+ 			else if (operation === 5) type = "message";
+ 			else if (operation === 8) type = "welcome";
+ 			let data;
+-			if (protocol === 0) data = JSON.parse(textDecoder.decode(body));
+-			if (protocol === 1 && body.length === 4) data = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(0);
+-			if (protocol === 2) data = await decoder(await inflateAsync(body));
+-			if (protocol === 3) data = await decoder(await brotliDecompressAsync(body));
+-			return {
++			if (operation === 3) {
++				if (body.length !== 4) throw new Error("Invalid heartbeat packet");
++				data = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(0);
++			} else if (operation === 5 || operation === 8) data = JSON.parse(textDecoder.decode(body));
++			result.push({
+ 				buf,
+ 				type,
+ 				protocol,
+ 				data
+-			};
+-		}))).flatMap((pack) => {
+-			if (pack.protocol === 2 || pack.protocol === 3) return pack.data;
+-			return pack;
+-		});
++			});
++		}
++		return result;
+ 	};
+ 	return decoder;
+ };
+@@ -324,10 +343,22 @@ var Live = class extends LaplaceEventTarget {
+ 			this.dispatchEvent(new Event("close"));
+ 		};
+ 		const decode = makeDecoder(inflates);
+-		this.addEventListener("message", async (e) => {
++		let decodeQueue = Promise.resolve();
++		let queuedBytes = 0;
++		this.addEventListener("message", (e) => {
+ 			const buffer = e.data;
+-			(await decode(buffer)).forEach(({ type, data }) => {
++			if (this.closed) return;
++			if (buffer.byteLength > 2097152 || queuedBytes + buffer.byteLength > 8388608) {
++				this.dispatchEvent(new Event("_error"));
++				return;
++			}
++			queuedBytes += buffer.byteLength;
++			decodeQueue = decodeQueue.then(async () => {
++				if (this.closed) return;
++				for (const { type, data } of await decode(buffer)) {
++				if (this.closed) return;
+ 				if (type === "welcome") {
++					if (!data || data.code !== 0) throw new Error("Authentication rejected");
+ 					this.live = true;
+ 					this.dispatchEvent(new Event("live"));
+ 					this.send(encoder("heartbeat"));
+@@ -338,12 +369,15 @@ var Live = class extends LaplaceEventTarget {
+ 					this.timeout = setTimeout(() => this.heartbeat(), 3e4);
+ 					this.dispatchEvent(new LaplaceRawEvent("heartbeat", this.online));
+ 				}
+-				if (type === "message") {
++				if (type === "message" && this.live && data && typeof data === "object") {
+ 					this.dispatchEvent(new LaplaceRawEvent("msg", data));
+ 					const cmd = data.cmd || data.msg?.cmd;
+ 					if (cmd) this.dispatchEvent(new LaplaceRawEvent(cmd, data));
+ 				}
+-			});
++				}
++			}).catch(() => {
++				if (!this.closed) this.dispatchEvent(new Event("_error"));
++			}).finally(() => { queuedBytes -= buffer.byteLength; });
+ 		});
+ 		this.addEventListener("open", () => {
+ 			if (authBody) this.send(authBody instanceof Uint8Array ? authBody : encoder("join", authBody));
+@@ -362,6 +396,8 @@ var Live = class extends LaplaceEventTarget {
+ 			}
+ 		});
+ 		this.addEventListener("close", () => {
++			this.closed = true;
++			this.live = false;
+ 			clearTimeout(this.timeout);
+ 		});
+ 		this.addEventListener("_error", () => {

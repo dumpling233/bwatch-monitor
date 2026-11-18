@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>隐私与账号信息说明 · BWatch Monitor</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #e5e7eb; background: #111827; line-height: 1.75; }
+    body { max-width: 760px; margin: 0 auto; padding: 32px 22px 56px; }
+    h1 { font-size: 1.7rem; line-height: 1.3; } h2 { margin-top: 30px; font-size: 1.15rem; }
+    a { color: #93c5fd; } li { margin: 8px 0; } code { overflow-wrap: anywhere; }
+    .note { padding: 12px 16px; border-left: 3px solid #60a5fa; background: #1e293b; }
+    @media (prefers-color-scheme: light) { :root { color: #172033; background: #f8fafc; } a { color: #1d4ed8; } .note { background: #eaf1fb; } }
+  </style>
+</head>
+<body>
+  <p><a href="./">返回 BWatch Monitor</a></p>
+  <h1>隐私与账号信息说明</h1>
+  <p>BWatch Monitor 由静态网页和浏览器扩展组成。直播观看通过扩展与浏览器直连 B站接口、直播 CDN 和弹幕服务器，不使用 BWatch 后端代理。</p>
+  <h2>本机保存的数据</h2>
+  <ul>
+    <li>网页在当前浏览器中保存收藏的房间号、必要房间资料、布局、音量和观看偏好。更换浏览器、清除网站数据或使用另一个网址时，这些数据不会自动同步。</li>
+    <li>扩展保存本站授权意图、绑定的账号 UID，以及有容量和期限限制的展示缓存。账号登录证据和临时媒体信息不作为永久登录凭据保存。</li>
+    <li>弹幕与 SC 展示为本页有界历史，不提供云端历史同步。</li>
+  </ul>
+  <h2>连接 B站账号</h2>
+  <p>匿名观看无需账号授权。连接账号后，扩展在本机读取完成账号验证和 B站业务请求所必需的 Cookie；Cookie 不提供给网页，也不上传到本工具服务器。账号昵称、UID、可用画质、关注列表、表情和勋章等业务结果会按功能显示在网页中。</p>
+  <p>账号权限只在扩展自己的确认窗口中授予。发送弹幕、选择勋章等操作由你主动触发；账号能力和可用画质以 B站当前权限为准。退出 B站、换号或撤销授权后，账号功能会停止，并需要重新连接。</p>
+  <h2>浏览器权限的用途</h2>
+  <ul>
+    <li><strong>存储：</strong>保存授权设置与受限展示缓存。</li>
+    <li><strong>Cookie 与 B站网站访问：</strong>在授权后读取必要账号凭据，并向固定的 B站业务接口发起请求。</li>
+    <li><strong>网络请求规则：</strong>为扩展自身的固定请求提供必要请求头，并为省流量音频建立临时、受限的媒体规则。</li>
+    <li><strong>本站脚本接入：</strong>只在受支持的工具页面连接网页与扩展。扩展不提供任意网址、任意请求头或 Cookie 导出的代理能力。</li>
+  </ul>
+  <h2>静态托管与同源边界</h2>
+  <p>GitHub Pages 负责分发网页和扩展文件。访问静态资源仍会向托管服务发起普通网络请求；B站接口、图片、媒体和弹幕连接由对应服务处理。</p>
+  <p class="note">默认地址位于 <code>https://dumpling233.github.io/bwatch-monitor/</code>。同一个 <code>https://dumpling233.github.io</code> 下的其他项目属于浏览器的同一来源，路径不能形成互不信任网站之间的安全隔离。此部署适用于该来源下的页面都由可信维护者控制的情况；需要独立来源时，应配置专用域名并重新构建配套扩展。</p>
+  <h2>撤销与清理</h2>
+  <p>在工具设置中选择“撤销本站授权”，即可停止本站标签页的账号功能，不会退出 B站。清除网站数据可以移除网页收藏与偏好；移除扩展可以清除其本机存储。浏览器中原有的 B站登录由 B站与浏览器管理。</p>
+  <p>扩展通过文件下载安装与手动更新。下载过程会校验安装包大小和 SHA-256；下载成功不等于安装完成，也不会自动授予账号权限。</p>
+</body>
+</html>

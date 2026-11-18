@@ -1,0 +1,32 @@
+# Dependencies and reproducible build outputs
+node_modules/
+dist/
+extension/.output/
+extension/.wxt/
+public/downloads/
+playwright-report/
+test-results/
+coverage/
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+# Local development governance and agent context never leave this device.
+.agent/
+.agents/
+.serena/
+.codex/
+.claude/
+.cursor/
+.github/copilot-instructions.md
+AGENTS.md
+CODEX.md
+CLAUDE.md
+GEMINI.md
+docs/prd/
+.temp/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

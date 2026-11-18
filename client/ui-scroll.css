@@ -1,0 +1,26 @@
+/* The single native scroll rail uses a bounded panel's existing end inset. */
+.ui-inset-scroll-frame { container-type: inline-size; }
+.ui-inset-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  margin-inline-end: calc(-1 * var(--ui-scroll-inset, 8px));
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-scroll-thumb, #3d4b61) transparent;
+}
+.ui-inset-scroll > .ui-inset-scroll-content { width: 100%; }
+@supports (width: 1cqw) {
+  .ui-inset-scroll > .ui-inset-scroll-content { width: 100cqw; }
+}
+.ui-inset-scroll::-webkit-scrollbar { width: 8px; }
+.ui-inset-scroll::-webkit-scrollbar-track,
+.ui-inset-scroll::-webkit-scrollbar-corner { background: transparent; }
+.ui-inset-scroll::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ui-scroll-thumb, #3d4b61);
+  background-clip: padding-box;
+}
+.ui-inset-scroll::-webkit-scrollbar-button { display: none; }

@@ -1,0 +1,20 @@
+.mv-shell .mv-tile .mv-volume-control > .mv-player-volume-popover {
+  box-sizing: border-box;
+  width: 36px;
+  padding: 6px 6px 8px;
+  gap: 5px;
+}
+
+.mv-shell .mv-tile .mv-volume-control > .mv-player-volume-popover > output {
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.mv-shell .mv-tile .mv-volume-control > .mv-player-volume-popover input.mv-tile-volume[type="range"] {
+  width: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  height: 60px;
+  min-height: 60px;
+  max-height: 60px;
+}

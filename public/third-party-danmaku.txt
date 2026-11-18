@@ -1,0 +1,38 @@
+BWatch monitor danmaku dependencies
+
+@laplace.live/ws 8.1.1 — https://github.com/laplace-live/ws
+MIT License
+Copyright (c) 2019 simon3000
+BWatch applies the version-locked protocol hardening patch in patches/.
+
+danmaku 2.0.10 — https://github.com/weizhenye/Danmaku
+The MIT License (MIT)
+Copyright (c) 2014 Zhenye Wei
+
+patch-package 8.0.1 — https://github.com/ds300/patch-package
+MIT License
+Copyright (c) 2017-Present David Sheldrick
+
+@tanstack/react-virtual and @tanstack/virtual-core — https://github.com/TanStack/virtual
+MIT License
+Copyright (c) 2021-present Tanner Linsley
+
+The following MIT terms apply separately to each software listed above:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

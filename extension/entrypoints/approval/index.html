@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN" class="bwatch-approval"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>连接 B站账号 · BWatch Monitor Companion</title></head>
+<body><main>
+  <header><span class="brand-mark" aria-hidden="true">B</span><div><h1>连接 B站账号</h1><p id="extension-name" class="subtitle">BWatch Monitor Companion 浏览器扩展</p></div></header>
+  <p>允许以下网站使用当前 B站账号：</p>
+  <section class="card"><h2>网站</h2><p id="origin">正在核实…</p><h2 class="account-heading">B站账号</h2><p id="account">正在核实…</p></section>
+  <p>允许此网站使用账号取流、接收登录弹幕、查看你关注的直播间和粉丝勋章，并在你主动操作时切换佩戴的勋章、发送文字和已解锁表情。</p>
+  <p class="muted">账号凭据仅在本机，不会自动发送消息。授权后全部账号功能自动可用；你可以随时撤销本站授权，停止全部账号功能。</p>
+  <p id="status" class="feedback" role="status">正在核实网站与账号…</p>
+  <div class="approval-actions"><button id="cancel" type="button">取消</button><button id="allow" type="button" class="primary" disabled>允许并连接</button></div>
+  <a id="login" class="text-button login-link" href="https://www.bilibili.com/" target="_blank" rel="noopener noreferrer" hidden>前往 B站登录或检查账号</a>
+  <p class="note">此次授权适用于上面的网站和当前浏览器账号；退出、换号或撤销后需重新确认。</p>
+</main><script type="module" src="./main.ts"></script></body></html>

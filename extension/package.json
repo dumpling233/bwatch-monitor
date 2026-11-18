@@ -1,0 +1,24 @@
+{
+  "name": "bwatch-monitor-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:local": "wxt build --mode development",
+    "zip": "wxt zip",
+    "zip:local": "wxt zip --mode development",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.0.0",
+    "adm-zip": "0.5.18",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "wxt": "^0.20.11"
+  }
+}
