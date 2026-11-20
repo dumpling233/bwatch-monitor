@@ -4,7 +4,7 @@ export const SITE_BASE_PATH = '/bwatch-monitor/';
 export const MONITOR_URL = `${SITE_ORIGIN}${SITE_BASE_PATH}`;
 export const MONITOR_MATCH_PATTERN = `${MONITOR_URL}*`;
 export const LOCAL_MONITOR_URLS = ['http://localhost:5173/', 'http://127.0.0.1:5173/'] as const;
-export const PROJECT_VERSION = '0.1.1';
+export const PROJECT_VERSION = '0.2.0';
 export const PROJECT_NAME = 'BWatch Monitor';
 export function isAllowedMonitorPage(value: unknown, local = false): boolean {
   if (typeof value !== 'string') return false;

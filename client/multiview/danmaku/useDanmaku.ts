@@ -4,10 +4,12 @@ import { DanmakuManager } from './manager';
 import type { DanmakuMessage, DanmakuRoomState, DanmakuWorkerEvent } from './types';
 import type { DanmakuHistoryView } from './store';
 
-export function useDanmaku({ roomIds, roomSources, visibilityRevision, identityScope = 'anonymous', bootstrapReady = true,
+export function useDanmaku({ roomIds, retainedRoomIds = roomIds, roomSources, visibilityRevision, identityScope = 'anonymous', bootstrapReady = true,
   resolveBootstrap, currentChatRoomId, publishedRoomId = currentChatRoomId, publishedView = 'all', priorityRoomId }: {
   roomIds: readonly string[];
-  /** Optional per-room source map. Missing entries remain catalog-compatible. */
+  /** Keep bounded history while a selected room is temporarily not receiving. */
+  retainedRoomIds?: readonly string[];
+  /** All room data comes from the independent app's public extension provider. */
   roomSources?: Readonly<Record<string, 'custom'>>;
   visibilityRevision?: string | number | null;
   identityScope?: string;
@@ -25,8 +27,10 @@ export function useDanmaku({ roomIds, roomSources, visibilityRevision, identityS
   const stateIdentity = useRef(identityKey);
   const [workerEpoch, setWorkerEpoch] = useState(0);
   const managerRef = useRef<DanmakuManager | null>(null);
+  const startWhenNeeded = useRef<(() => void) | null>(null);
   const pageHiddenRef = useRef(false);
   const neededRef = useRef(roomIds); neededRef.current = roomIds;
+  const retainedRef = useRef(retainedRoomIds); retainedRef.current = retainedRoomIds;
   const sourcesRef = useRef(roomSources); sourcesRef.current = roomSources;
   const resolverRef = useRef(resolveBootstrap); resolverRef.current = resolveBootstrap;
   const chatRef = useRef(currentChatRoomId); chatRef.current = currentChatRoomId;
@@ -35,11 +39,13 @@ export function useDanmaku({ roomIds, roomSources, visibilityRevision, identityS
   const priorityRef = useRef(priorityRoomId); priorityRef.current = priorityRoomId;
   const hiddenAt = useRef<number | null>(null);
   const listeners = useRef(new Map<string, Set<(messages: DanmakuMessage[]) => void>>());
-  const sourceKey = roomIds.map(id => `${id}:${roomSources?.[id] ?? 'custom'}`).sort().join(',');
+  const sourceKey = [...new Set([...roomIds, ...retainedRoomIds])].map(id => `${id}:${roomSources?.[id] ?? 'custom'}`).sort().join(',');
+  const hasRooms = roomIds.length > 0 || retainedRoomIds.length > 0;
   useEffect(() => {
     stateIdentity.current = identityKey;
     setRooms({});
     let disposed = false;
+    let failed = false;
     let worker: Worker | null = null;
     let manager: DanmakuManager | null = null;
     let shortTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,11 +78,12 @@ export function useDanmaku({ roomIds, roomSources, visibilityRevision, identityS
       previousManager?.dispose(); previousWorker?.terminate();
     };
     const start = () => {
-      if (disposed || pageHiddenRef.current || manager || !neededRef.current.length || !bootstrapReady) return;
+      if (disposed || failed || pageHiddenRef.current || manager || !neededRef.current.length || !bootstrapReady) return;
       setRooms({});
       let nextWorker: Worker;
       try { nextWorker = new Worker(new URL('./danmaku.worker.ts', import.meta.url), { type: 'module', name: 'bwatch-monitor-danmaku' }); }
       catch {
+        failed = true;
         setRooms(Object.fromEntries(neededRef.current.map(id => [id, { status: 'error', error: '当前浏览器不支持弹幕工作线程', messages: [], superChats: [] }])));
         return;
       }
@@ -94,37 +101,43 @@ export function useDanmaku({ roomIds, roomSources, visibilityRevision, identityS
       nextWorker.onmessage = (event: MessageEvent<DanmakuWorkerEvent>) => { if (current()) nextManager.receive(event.data); };
       nextWorker.onerror = () => {
         if (!current()) return;
+        failed = true;
         stop();
         setRooms(Object.fromEntries(neededRef.current.map(id => [id, { status: 'error', error: '弹幕工作线程加载失败', messages: [], superChats: [] }])));
       };
-      nextManager.setRooms(orderedRooms(), sourcesRef.current);
-      nextManager.setPublishedRooms(publishedRef.current ? [publishedRef.current] : [], publishedViewRef.current);
       activity();
+      nextManager.setRooms(orderedRooms(), sourcesRef.current, retainedRef.current);
+      nextManager.setPublishedRooms(publishedRef.current ? [publishedRef.current] : [], publishedViewRef.current);
     };
     const hide = () => { pageHiddenRef.current = true; clearTimers(); stop(); setRooms({}); };
-    const show = (event: PageTransitionEvent) => { if (event.persisted) { pageHiddenRef.current = false; start(); } };
+    const show = (event: PageTransitionEvent) => { if (event.persisted) { pageHiddenRef.current = false; failed = false; start(); } };
     const online = () => manager?.online();
     window.addEventListener('online', online);
     window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
     document.addEventListener('visibilitychange', activity);
+    startWhenNeeded.current = start;
     start();
     return () => {
+      startWhenNeeded.current = null;
       disposed = true; clearTimers(); stop();
       window.removeEventListener('online', online);
       window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
       document.removeEventListener('visibilitychange', activity);
     };
-  // The worker exists only while some room is demanded. Layout diffs retain it.
-  }, [visibilityRevision, roomIds.length > 0, workerEpoch, identityScope, bootstrapReady]);
+  // Create the worker on first demand and keep history through selected-room pauses.
+  }, [visibilityRevision, hasRooms, workerEpoch, identityScope, bootstrapReady]);
   const key = [...roomIds].sort().join(',');
+  const retainedKey = [...retainedRoomIds].sort().join(',');
   useEffect(() => {
+    const manager = managerRef.current;
+    if (!manager) { startWhenNeeded.current?.(); return; }
     const ordered = [...neededRef.current].sort((a, b) =>
       (a === chatRef.current ? -2 : a === priorityRef.current ? -1 : 0) - (b === chatRef.current ? -2 : b === priorityRef.current ? -1 : 0));
-    managerRef.current?.setRooms(ordered, sourcesRef.current);
-    managerRef.current?.setPublishedRooms(publishedRef.current ? [publishedRef.current] : [], publishedViewRef.current);
     const elapsed = hiddenAt.current === null ? 0 : Date.now() - hiddenAt.current;
-    managerRef.current?.setActiveRooms(elapsed >= 300_000 ? [] : elapsed >= 30_000 ? ordered.filter(id => id === chatRef.current) : ordered);
-  }, [key, sourceKey, currentChatRoomId, publishedRoomId, publishedView, priorityRoomId]);
+    const active = elapsed >= 300_000 ? [] : elapsed >= 30_000 ? ordered.filter(id => id === chatRef.current) : ordered;
+    manager.setRooms(ordered, sourcesRef.current, retainedRef.current, active);
+    manager.setPublishedRooms(publishedRef.current ? [publishedRef.current] : [], publishedViewRef.current);
+  }, [key, retainedKey, sourceKey, currentChatRoomId, publishedRoomId, publishedView, priorityRoomId]);
   const subscribe = useCallback((roomId: string, listener: (messages: DanmakuMessage[]) => void) => {
     let callbacks = listeners.current.get(roomId); if (!callbacks) listeners.current.set(roomId, callbacks = new Set());
     callbacks.add(listener);

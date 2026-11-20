@@ -108,11 +108,11 @@
 .mv-shell .mv-danmaku-reset { margin-top: 14px; color: var(--mv-muted); }
 .mv-danmaku-account-settings { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--mv-border); }
 .mv-danmaku-account-settings > p { margin: 0; color: var(--mv-muted); font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
-.mv-shell .mv-danmaku-account-settings > .toggle-button { justify-self: start; }
+.mv-danmaku-medal-setting-toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .mv-shell .mv-danmaku-toggle[aria-pressed="true"] { color: #7bcaa0; }
 .mv-danmaku-virtual-stack { animation: none; }
 .mv-danmaku-row.mv-danmaku-virtual-row { display: block; transition: none; animation: none; }
-.mv-danmaku-virtual-row.mv-danmaku-row-entering > article { animation: mv-danmaku-message-in 180ms ease-out; }
+.mv-danmaku-virtual-row.mv-danmaku-row-entering > :is(article, .mv-danmaku-gap-entry) { animation: mv-danmaku-message-in 180ms ease-out; }
 .mv-danmaku-rich-message { min-height: 60px; }
 .mv-danmaku-repeatable .mv-danmaku-message-content { min-height: 20px; padding-right: 36px; }
 .mv-danmaku-repeat-anchor { position: absolute; top: 50%; right: 0; width: 30px; height: 26px; transform: translateY(-50%); }
@@ -207,6 +207,16 @@
 .mv-danmaku-medal-popover { z-index: 90; box-sizing: border-box; display: flex; flex-direction: column; width: min(330px, calc(100vw - 20px)); max-height: min(430px, var(--radix-popover-content-available-height, calc(100dvh - 24px))); overflow: hidden; padding: 8px; border: 1px solid var(--mv-border, #34445c); border-radius: 8px; background: #1b2739; color: #d6e1f0; box-shadow: 0 6px 24px #0007; font: inherit; font-size: 11px; outline: none; transform-origin: var(--radix-popover-content-transform-origin); }
 .mv-danmaku-medal-popover > header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 8px; padding: 0 1px 6px; color: #c3d8f3; }
 .mv-danmaku-medal-popover > header > div { display: flex; align-items: center; gap: 3px; }
+.mv-danmaku-medal-popover > header > strong { min-width: 0; }
+.mv-danmaku-medal-popover > header > div { flex: 0 0 auto; }
+.mv-danmaku-medal-quick-toggles { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; }
+.mv-danmaku-medal-popover .mv-danmaku-medal-quick-toggle {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-width: 25px; width: 25px; min-height: 25px; height: 25px; padding: 0; gap: 0; border-radius: 4px;
+}
+.mv-danmaku-medal-popover .mv-danmaku-medal-quick-toggle[aria-pressed="true"] { color: #8ae3af; }
+.mv-danmaku-medal-popover .mv-danmaku-medal-quick-toggle[aria-pressed="false"] { color: #a6b8d1; }
+.mv-danmaku-medal-popover .mv-danmaku-medal-quick-toggle:focus-visible { outline: 2px solid #58a6ff; outline-offset: 1px; }
 .mv-danmaku-medal-popover .mv-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #b6c9e3; cursor: pointer; }
 .mv-danmaku-medal-popover .mv-icon-button:hover:not(:disabled) { background: #ffffff0d; }
 .mv-danmaku-medal-list { flex: 1 1 auto; min-height: 0; outline: none; --ui-scroll-inset: 8px; }
@@ -289,7 +299,14 @@ button.mv-danmaku-composer-notice:focus-visible { outline: 2px solid #58a6ff; ou
 @keyframes mv-danmaku-emotes-out { to { opacity: 0; transform: translateY(3px); } }
 @media (prefers-reduced-motion: reduce) { .mv-danmaku-emotes[data-state], .mv-danmaku-compose-detail[data-state] { animation: none; } }
 .mv-danmaku-spinner { animation: mv-danmaku-spin 1s linear infinite; }
-.mv-danmaku-gap { margin: 0; color: var(--mv-muted); font-size: 10px; line-height: 1.5; }
+.mv-danmaku-gap-entry { min-height: 52px; box-sizing: border-box; display: grid; align-content: center; gap: 2px; padding: 7px 2px; color: var(--mv-muted); font-size: 11px; line-height: 1.5; text-align: center; }
+.mv-danmaku-gap-title { display: flex; align-items: center; gap: 8px; color: #b0bad0; }
+.mv-danmaku-gap-title::before, .mv-danmaku-gap-title::after { flex: 1; content: ''; border-top: 1px dashed var(--mv-border); }
+.mv-danmaku-gap-times { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 5px; }
+.mv-danmaku-gap-times time { font-variant-numeric: tabular-nums; }
+.mv-danmaku-gap-times > span { white-space: nowrap; }
+.mv-danmaku-gap-recovery { color: #dfb88d; transition: color 140ms ease; }
+.mv-danmaku-gap-entry[data-recovered="true"] .mv-danmaku-gap-recovery { color: var(--mv-muted); }
 @keyframes mv-danmaku-spin { to { transform: rotate(360deg); } }
 @keyframes mv-danmaku-message-in { from { opacity: .55; } to { opacity: 1; } }
 @keyframes mv-danmaku-context-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

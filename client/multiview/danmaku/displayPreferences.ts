@@ -27,7 +27,11 @@ export interface DanmakuStyle {
   blockedWords: string[];
 }
 export interface RoomDanmakuPreference { enabled: boolean; style?: DanmakuStyle }
-export interface DanmakuPreferences { defaults: DanmakuStyle; rooms: Record<string, RoomDanmakuPreference>; autoWearRoomMedal?: boolean }
+export interface DanmakuPreferences {
+  defaults: DanmakuStyle;
+  rooms: Record<string, RoomDanmakuPreference>;
+  autoWearRoomMedal?: boolean;
+}
 
 export const defaultDanmakuStyle = (): DanmakuStyle => ({ fontSize: 28, fixedFontSize: false, fontFamily: 'SimHei', bold: true, textEffect: 'heavy', area: 0.5, opacity: 0.8, speed: 1, blockedWords: [] });
 export const defaultDanmakuPreferences = (): DanmakuPreferences => ({ defaults: defaultDanmakuStyle(), rooms: {}, autoWearRoomMedal: false });
@@ -56,7 +60,11 @@ export function validateDanmakuPreferences(value: unknown, roomIds: readonly str
     const room = record(source.rooms) && record(source.rooms[id]) ? source.rooms[id] : {};
     rooms[id] = { enabled: room.enabled === true, ...(record(room.style) ? { style: validateDanmakuStyle(room.style) } : {}) };
   }
-  return { defaults: validateDanmakuStyle(source.defaults), rooms, autoWearRoomMedal: source.autoWearRoomMedal === true };
+  return {
+    defaults: validateDanmakuStyle(source.defaults),
+    rooms,
+    autoWearRoomMedal: source.autoWearRoomMedal === true,
+  };
 }
 
 export const roomDanmakuStyle = (preferences: DanmakuPreferences, roomId: string): DanmakuStyle => preferences.rooms[roomId]?.style ?? preferences.defaults;

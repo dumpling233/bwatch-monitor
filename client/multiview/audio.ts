@@ -1,4 +1,4 @@
-import { defaultRoomPreference, type MultiviewPreferences } from './preferences';
+import { defaultRoomPreference, normalizeRoomAudioBalance, type MultiviewPreferences } from './preferences';
 
 const masterSilenced = (value: MultiviewPreferences) => value.masterMuted || value.masterVolume === 0;
 
@@ -24,4 +24,12 @@ export function setRoomAudioVolume(value: MultiviewPreferences, roomId: string, 
   if (volume > 0) return enableRoomAudio(value, roomId, volume);
   const room = { ...defaultRoomPreference(), ...value.rooms[roomId] };
   return { ...value, rooms: { ...value.rooms, [roomId]: { ...room, volume, muted: true } } };
+}
+
+export function setRoomAudioBalance(value: MultiviewPreferences, roomId: string, balance: number): MultiviewPreferences {
+  if (!value.roomIds.includes(roomId)) return value;
+  const room = value.rooms[roomId] ?? defaultRoomPreference();
+  const next = normalizeRoomAudioBalance(balance);
+  if (room.balance === next) return value;
+  return { ...value, rooms: { ...value.rooms, [roomId]: { ...room, balance: next } } };
 }

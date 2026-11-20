@@ -26,8 +26,9 @@ function stop(connection: Connection): void {
 }
 function fail(connection: Connection, error: string): void {
   if (!current(connection)) return;
+  const occurredAt = Date.now();
   stop(connection);
-  context.postMessage({ type: 'state', roomId: connection.roomId, generation: connection.generation, state: { status: 'error', error } });
+  context.postMessage({ type: 'state', roomId: connection.roomId, generation: connection.generation, occurredAt, state: { status: 'error', error } });
 }
 function armWatchdog(connection: Connection, ms: number): void {
   clearTimeout(connection.watchdog);
@@ -54,13 +55,15 @@ function connect(command: Extract<DanmakuWorkerCommand, { type: 'connect' }>): v
     live.addEventListener('live', () => {
       if (!current(connection)) return;
       armWatchdog(connection, 45000);
-      context.postMessage({ type: 'state', roomId: command.roomId, generation: command.generation, state: { status: 'live' } });
+      context.postMessage({ type: 'state', roomId: command.roomId, generation: command.generation, occurredAt: Date.now(), state: { status: 'live' } });
     });
     live.addEventListener('heartbeat', () => { if (current(connection)) armWatchdog(connection, 45000); });
     live.addEventListener('msg', event => {
       if (!current(connection) || !live.live) return;
       armWatchdog(connection, 45000);
-      output.add(command.roomId, connection.generation, normalizeDanmaku(command.roomId, event.data));
+      const events = normalizeDanmaku(command.roomId, event.data);
+      for (const item of events) if (item.type === 'message') item.message.connectionGeneration = connection.generation;
+      output.add(command.roomId, connection.generation, events);
     });
     live.addEventListener('close', () => fail(connection, '弹幕连接已断开'));
     live.addEventListener('error', () => fail(connection, '弹幕认证或数据解析失败'));

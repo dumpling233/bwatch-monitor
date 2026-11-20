@@ -4,6 +4,7 @@ import { connectPlaybackSource, orderPlaybackSources, supportsPlaybackSource, ty
 import { createPlaybackSession, createPlaybackRecoveryState, type PlaybackOptionsState, type PlaybackSession, type PlayerStatus } from './playbackSession';
 import type { LocalPlaybackResolver } from './localLoginProvider';
 import type { LocalAudioPlaybackResolver } from './localAudioProvider';
+import { preparePlaybackAudio, releasePlaybackAudioBalance, setPlaybackAudioBalance } from './playbackAudioBalance';
 
 export type { PlayerStatus } from './playbackSession';
 export { playbackRouteKey, playbackCdnKey } from './playbackSession';
@@ -19,6 +20,8 @@ export interface LivePlayerProps {
   requestedQuality: number;
   muted: boolean;
   volume: number;
+  balance?: number;
+  onBalanceUnavailable?: (unavailable: boolean) => void;
   paused: boolean;
   active: boolean;
   visible?: boolean;
@@ -56,6 +59,33 @@ export function LivePlayer(props: LivePlayerProps) {
     video.volume = Number.isFinite(props.volume) ? Math.min(1, Math.max(0, props.volume)) : 0;
     video.muted = props.muted;
   }, [props.volume, props.muted]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) return () => releasePlaybackAudioBalance(video);
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!props.active || props.paused) { releasePlaybackAudioBalance(video); return; }
+    const watchBalance = () => setPlaybackAudioBalance(video, props.balance, props.onBalanceUnavailable
+      ? unavailable => callbacks.current.onBalanceUnavailable?.(unavailable) : undefined);
+    let unwatch = pageHiddenRef.current ? undefined : watchBalance();
+    const hide = () => {
+      unwatch?.();
+      unwatch = undefined;
+      releasePlaybackAudioBalance(video);
+    };
+    const show = (event: PageTransitionEvent) => { if (event.persisted && !unwatch) unwatch = watchBalance(); };
+    window.addEventListener('pagehide', hide);
+    window.addEventListener('pageshow', show);
+    return () => {
+      unwatch?.();
+      window.removeEventListener('pagehide', hide);
+      window.removeEventListener('pageshow', show);
+    };
+  }, [props.roomId, props.active, props.paused, props.balance, Boolean(props.onBalanceUnavailable)]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -120,7 +150,11 @@ export function LivePlayer(props: LivePlayerProps) {
         onCooldown: seconds => { if (current()) callbacks.current.onCooldown?.(seconds); },
         onStatus: (status, message) => { if (current()) callbacks.current.onStatusChange?.(status, message); },
         onAutoplayBlockedChange: resume => {
-          if (current()) callbacks.current.onAutoplayBlockedChange?.(resume ? () => { if (current()) resume(); } : null);
+          if (current()) callbacks.current.onAutoplayBlockedChange?.(resume ? () => {
+            if (!current()) return;
+            if (callbacks.current.balance) preparePlaybackAudio();
+            resume();
+          } : null);
         },
         onMediaModeRejected: (mode, message) => { if (current()) callbacks.current.onMediaModeRejected?.(mode, message); },
         onAudioDeliveryChange: delivery => { if (current()) callbacks.current.onAudioDeliveryChange?.(delivery); },

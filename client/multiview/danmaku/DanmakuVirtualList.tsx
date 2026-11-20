@@ -1,21 +1,73 @@
-import React, { useLayoutEffect, useEffect, useRef, useState, type RefObject } from 'react';
+import React, { useLayoutEffect, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { elementScroll, observeElementOffset, useVirtualizer } from '@tanstack/react-virtual';
-import type { DanmakuMessage } from './types';
+import type { DanmakuGap, DanmakuMessage } from './types';
 import type { DanmakuChatAdapter } from './DanmakuComposer';
 import { DanmakuMessageCard } from './DanmakuMessageCard';
 import type { DanmakuRepeatSender, DanmakuRepeatState } from './repeatMessage';
 
 type Snapshot = { message: DanmakuMessage; top: number; left: number; width: number };
+type TimelineItem = DanmakuMessage | DanmakuGap;
+const isGap = (item: TimelineItem): item is DanmakuGap => 'startedAt' in item;
+const rowKey = (item: TimelineItem) => isGap(item) ? `gap:${item.id}` : item.id;
+const rowTime = (item: TimelineItem) => isGap(item) ? item.startedAt : item.receivedAt;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const estimateHeight = (message: DanmakuMessage | undefined) => Math.max(64, Math.min(260, 58 + Math.ceil((message?.text.length ?? 0) / 20) * 19));
+function estimateHeight(item: TimelineItem | undefined): number {
+  if (!item) return 64;
+  if (isGap(item)) return 52;
+  return Math.max(64, Math.min(260, 58 + Math.ceil(item.text.length / 20) * 19));
+}
 const MAX_RESTORE_LAYOUT_PASSES = 2;
 const MAX_FALLBACK_ROWS = 80;
 export type DanmakuViewport = { following: boolean; anchorId?: string; anchorOffset?: number; scrollOffset?: number; manualResumeOnly?: boolean };
 
+function mergeTimeline(messages: readonly DanmakuMessage[], gaps?: readonly DanmakuGap[]): readonly TimelineItem[] {
+  if (!gaps?.length) return messages;
+  const items: TimelineItem[] = [];
+  let index = 0;
+  for (const gap of gaps) {
+    while (index < messages.length) {
+      const message = messages[index];
+      const afterGap = gap.interruptedGeneration !== undefined && message.connectionGeneration !== undefined
+        ? message.connectionGeneration > gap.interruptedGeneration : message.receivedAt > gap.startedAt;
+      if (afterGap) break;
+      items.push(message);
+      index += 1;
+    }
+    items.push(gap);
+  }
+  for (; index < messages.length; index += 1) items.push(messages[index]);
+  return items;
+}
+
+const gapLabels: Record<DanmakuGap['reason'], string> = {
+  background: '后台暂停接收',
+  disconnected: '弹幕连接中断',
+  paused: '弹幕接收暂停',
+};
+const gapTime = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const gapDateTime = new Intl.DateTimeFormat('zh-CN', {
+  month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+});
+
+function DanmakuGapRow({ gap }: { gap: DanmakuGap }) {
+  const start = new Date(gap.startedAt), end = gap.endedAt === undefined ? null : new Date(gap.endedAt);
+  const showDate = start.toDateString() !== new Date().toDateString() || end && start.toDateString() !== end.toDateString();
+  const formatter = showDate ? gapDateTime : gapTime;
+  return <div className="mv-danmaku-gap-entry" data-recovered={Boolean(end)}>
+    <div className="mv-danmaku-gap-title">{gapLabels[gap.reason]}</div>
+    <div className="mv-danmaku-gap-times">
+      <span><time dateTime={start.toISOString()} title={gapDateTime.format(start)}>{formatter.format(start)}</time> 暂停</span>
+      <span aria-hidden="true">·</span>
+      <span className="mv-danmaku-gap-recovery">{end ? <><time dateTime={end.toISOString()} title={gapDateTime.format(end)}>{formatter.format(end)}</time> 已恢复</> : '等待恢复'}</span>
+    </div>
+  </div>;
+}
+
 /** Dynamic-height rows; the viewport's explicit follow/reading intent remains authoritative. */
-export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrollCompensation, chat, repeatState, onRepeat, onRepeatOpen, paused = false, initialViewport = { following: true }, following, onViewportReady, onViewportChange }: {
+export function DanmakuVirtualList({ messages, gaps, scrollRef, scrollElement, onScrollCompensation, chat, repeatState, onRepeat, onRepeatOpen, paused = false, initialViewport = { following: true }, following, onViewportReady, onViewportChange }: {
   messages: readonly DanmakuMessage[];
+  gaps?: readonly DanmakuGap[];
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollElement: HTMLDivElement | null;
   onScrollCompensation: (element: HTMLElement) => void;
@@ -29,13 +81,14 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
   onViewportReady?: (ready: boolean, viewport?: DanmakuViewport) => void;
   onViewportChange?: (viewport: DanmakuViewport) => void;
 }) {
-  const [items, setItems] = useState(messages);
+  const timeline = useMemo(() => mergeTimeline(messages, gaps), [messages, gaps]);
+  const [items, setItems] = useState(timeline);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const stackRef = useRef<HTMLDivElement>(null);
   // Mounting a room/view exposes retained history, not newly received rows.
-  const completedAnimations = useRef(new Set(messages.map(message => message.id)));
+  const completedAnimations = useRef(new Set(timeline.map(rowKey)));
   const committedRows = useRef(new Set<string>());
-  const historyPending = useRef(messages.length === 0);
+  const historyPending = useRef(timeline.length === 0);
   const historyCutoff = useRef(Date.now());
   const restoring = useRef(true);
   const wasPaused = useRef(paused);
@@ -62,13 +115,13 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
   if (wasPaused.current && !paused) {
     historyCutoff.current = Date.now();
     if (items.length) {
-      for (const message of items) completedAnimations.current.add(message.id);
+      for (const item of items) completedAnimations.current.add(rowKey(item));
       historyPending.current = false;
     }
   }
   const compensateRef = useRef(onScrollCompensation);
   compensateRef.current = onScrollCompensation;
-  const anchorRef = useRef<{ id: string; offset: number; before: readonly DanmakuMessage[] } | null>(null);
+  const anchorRef = useRef<{ id: string; offset: number; before: readonly TimelineItem[] } | null>(null);
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: items.length,
     // The parent's host ref attaches after this child's layout effects. Its
@@ -79,7 +132,7 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
     initialOffset: () => {
       const viewport = currentViewport.current;
       const height = scrollElement?.clientHeight ?? scrollRef.current?.clientHeight ?? 0;
-      const anchor = viewport.anchorId ? items.findIndex(message => message.id === viewport.anchorId) : -1;
+      const anchor = viewport.anchorId ? items.findIndex(item => rowKey(item) === viewport.anchorId) : -1;
       if (!viewport.following && anchor >= 0) return Math.max(0, items.slice(0, anchor).reduce((total, message) => total + estimateHeight(message), 0) - (viewport.anchorOffset ?? 0));
       // Bounded history may evict the reading anchor while another room is
       // open. Start at its earliest retained row, keeping reading mode paused.
@@ -87,7 +140,7 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
       if (!viewport.following && viewport.scrollOffset !== undefined) return viewport.scrollOffset;
       return Math.max(0, items.reduce((total, message) => total + estimateHeight(message), 0) - height);
     },
-    getItemKey: index => items[index]?.id ?? index,
+    getItemKey: index => items[index] ? rowKey(items[index]) : index,
     overscan: 5,
     useAnimationFrameWithResizeObserver: true,
     observeElementOffset: (instance, callback) => {
@@ -140,8 +193,8 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
     let last = virtualizer.getVirtualItemForOffset(offset + height)?.index ?? first;
     let retained = false;
     if (!height && retainedRange.current) {
-      const start = items.findIndex(message => message.id === retainedRange.current!.firstId);
-      const end = items.findIndex(message => message.id === retainedRange.current!.lastId);
+      const start = items.findIndex(item => rowKey(item) === retainedRange.current!.firstId);
+      const end = items.findIndex(item => rowKey(item) === retainedRange.current!.lastId);
       if (start >= 0 && end >= start) { first = start; last = end; retained = true; }
     }
     const start = Math.max(0, first - (retained ? 0 : 5));
@@ -150,8 +203,8 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
   }
   const animateNewRows = currentViewport.current.following && !document.hidden && !reducedMotion();
   const enteringRows = new Set(renderedRows.filter(row => {
-    const message = items[row.index];
-    return message && animateNewRows && !completedAnimations.current.has(message.id) && Date.now() - message.receivedAt < 1000;
+    const item = items[row.index];
+    return item && animateNewRows && !completedAnimations.current.has(rowKey(item)) && Date.now() - rowTime(item) < 1000;
   }).map(row => String(row.key)));
   useLayoutEffect(() => {
     const currentRows = new Set(renderedRows.map(row => String(row.key)));
@@ -166,42 +219,44 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
     if (!items.length) retainedRange.current = null;
   });
   useLayoutEffect(() => {
-    if (messages === items) return;
-    if (historyPending.current && messages.length) {
+    if (timeline === items) return;
+    if (historyPending.current && timeline.length) {
       // A delayed projection can contain very recent retained history. The
       // receive timestamp distinguishes it from a genuinely new first message
       // arriving after this view opened, which still gets its entry animation.
-      for (const message of messages) if (message.receivedAt <= historyCutoff.current) completedAnimations.current.add(message.id);
+      for (const item of timeline) if (rowTime(item) <= historyCutoff.current) completedAnimations.current.add(rowKey(item));
       historyPending.current = false; beginRestore();
       viewportCallbacks.current.onViewportReady?.(false);
     }
     const element = scrollRef.current, stack = stackRef.current;
-    const wanted = new Set(messages.map(message => message.id));
-    const removed = new Map(items.filter(message => !wanted.has(message.id)).map(message => [message.id, message]));
-    if (element && stack && removed.size) {
+    const wanted = new Set(timeline.map(rowKey));
+    const removed = new Map(items.filter(item => !wanted.has(rowKey(item))).map(item => [rowKey(item), item]));
+    const previousGaps = !currentViewport.current.following && gaps?.length ? new Set(items.filter(isGap).map(rowKey)) : null;
+    const insertedGap = previousGaps && gaps?.some(gap => !previousGaps.has(rowKey(gap)));
+    if (element && stack && (removed.size || insertedGap && !currentViewport.current.following)) {
       const clip = element.getBoundingClientRect();
-      const rows = [...stack.querySelectorAll<HTMLElement>('[data-message-id]')];
-      const anchor = rows.find(row => wanted.has(row.dataset.messageId ?? '') && row.getBoundingClientRect().bottom > clip.top && row.getBoundingClientRect().top < clip.bottom);
+      const rows = [...stack.querySelectorAll<HTMLElement>('[data-timeline-key]')];
+      const anchor = rows.find(row => wanted.has(row.dataset.timelineKey ?? '') && row.getBoundingClientRect().bottom > clip.top && row.getBoundingClientRect().top < clip.bottom);
       const committed = anchor && renderedRows.find(row => row.index === Number(anchor.dataset.index));
       // Head eviction changes every retained offset even if the total height
       // stays unchanged. Preserve that content before continuing the one follow
       // animation; use layout offsets so ancestor scale cannot skew the anchor.
-      if (anchor && committed) anchorRef.current = { id: anchor.dataset.messageId!, offset: committed.start - element.scrollTop, before: items };
-      if (!reducedMotion() && !document.hidden) {
+      if (anchor && committed) anchorRef.current = { id: anchor.dataset.timelineKey!, offset: committed.start - element.scrollTop, before: items };
+      if (removed.size && !reducedMotion() && !document.hidden) {
         const area = stack.closest('.mv-danmaku-log-area');
         if (area) {
           const bounds = area.getBoundingClientRect();
           const visible: Snapshot[] = [];
           for (const row of rows) {
-            const message = removed.get(row.dataset.messageId ?? ''), rect = row.getBoundingClientRect();
-            if (message && rect.bottom > clip.top && rect.top < clip.bottom && visible.length < 12) visible.push({ message, top: rect.top - bounds.top, left: rect.left - bounds.left, width: rect.width });
+            const item = removed.get(row.dataset.timelineKey ?? ''), rect = row.getBoundingClientRect();
+            if (item && !isGap(item) && rect.bottom > clip.top && rect.top < clip.bottom && visible.length < 12) visible.push({ message: item, top: rect.top - bounds.top, left: rect.left - bounds.left, width: rect.width });
           }
           if (visible.length) setSnapshots(visible);
         }
       }
     }
-    setItems(messages);
-  }, [messages, items, scrollRef]);
+    setItems(timeline);
+  }, [timeline, items, gaps, scrollRef]);
   useLayoutEffect(() => {
     if (paused) {
       wasPaused.current = true; historyPending.current = true;
@@ -214,7 +269,7 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
       wasPaused.current = false; beginRestore();
     }
     const element = scrollRef.current, stack = stackRef.current;
-    if (!element || !scrollElement || !stack || messages !== items) return;
+    if (!element || !scrollElement || !stack || timeline !== items) return;
     if (!element.clientWidth || !element.clientHeight) {
       beginRestore();
       cancelRestoreFrame();
@@ -228,7 +283,7 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
     let restoredFollowing: boolean | undefined;
     if (restoring.current) {
       const viewport = currentViewport.current;
-      const index = viewport.anchorId ? items.findIndex(message => message.id === viewport.anchorId) : -1;
+      const index = viewport.anchorId ? items.findIndex(item => rowKey(item) === viewport.anchorId) : -1;
       const measurement = index >= 0 ? virtualizer.getOffsetForIndex(index, 'start') : undefined;
       const maximum = Math.max(0, element.scrollHeight - element.clientHeight);
       const top = !viewport.following && measurement ? measurement[0] - (viewport.anchorOffset ?? 0)
@@ -285,21 +340,21 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
     }
     const isFollowing = following ?? restoredFollowing ?? element.dataset.autoScroll !== 'false';
     const clip = !isFollowing ? element.getBoundingClientRect() : null;
-    const row = clip ? [...stack.querySelectorAll<HTMLElement>('[data-message-id]')].find(node => node.getBoundingClientRect().bottom > clip.top) : undefined;
+    const row = clip ? [...stack.querySelectorAll<HTMLElement>('[data-timeline-key]')].find(node => node.getBoundingClientRect().bottom > clip.top) : undefined;
     const anchor = row && renderedRows.find(item => item.index === Number(row.dataset.index));
     const viewport: DanmakuViewport = { following: isFollowing, scrollOffset: element.scrollTop,
-      ...(row && anchor ? { anchorId: row.dataset.messageId!, anchorOffset: anchor.start - element.scrollTop } : {}) };
+      ...(row && anchor ? { anchorId: row.dataset.timelineKey!, anchorOffset: anchor.start - element.scrollTop } : {}) };
     currentViewport.current = viewport;
     viewportCallbacks.current.onViewportChange?.(viewport);
   });
   useLayoutEffect(() => {
-    const wanted = new Set(items.map(message => message.id));
+    const wanted = new Set(items.map(rowKey));
     for (const key of virtualizer.itemSizeCache.keys()) if (!wanted.has(String(key))) virtualizer.itemSizeCache.delete(key);
     for (const key of completedAnimations.current) if (!wanted.has(key)) completedAnimations.current.delete(key);
     const anchor = anchorRef.current, element = scrollRef.current;
     if (!anchor || anchor.before === items || !element) return;
     anchorRef.current = null;
-    const index = items.findIndex(message => message.id === anchor.id);
+    const index = items.findIndex(item => rowKey(item) === anchor.id);
     if (index < 0) return;
     virtualizer.getTotalSize();
     const measurement = virtualizer.measurementsCache[index];
@@ -323,13 +378,14 @@ export function DanmakuVirtualList({ messages, scrollRef, scrollElement, onScrol
   return <>
     <div ref={stackRef} className="mv-danmaku-message-stack mv-danmaku-virtual-stack" style={{ height: totalSize, position: 'relative' }}>
       {renderedRows.map(row => {
-        const message = items[row.index];
-        if (!message) return null;
-        const fresh = enteringRows.has(message.id);
-        return <div key={row.key} data-index={row.index} data-message-id={message.id} ref={virtualizer.measureElement} className={`mv-danmaku-row mv-danmaku-virtual-row${fresh ? ' mv-danmaku-row-entering' : ''}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${row.start}px)` }} onAnimationEnd={event => {
-          if (event.animationName === 'mv-danmaku-message-in') { completedAnimations.current.add(message.id); event.currentTarget.classList.remove('mv-danmaku-row-entering'); }
+        const item = items[row.index];
+        if (!item) return null;
+        const key = rowKey(item), gap = isGap(item), fresh = enteringRows.has(key);
+        return <div key={row.key} data-index={row.index} data-timeline-key={key} data-message-id={gap ? undefined : item.id} data-gap-id={gap ? item.id : undefined} ref={virtualizer.measureElement} className={`mv-danmaku-row mv-danmaku-virtual-row${fresh ? ' mv-danmaku-row-entering' : ''}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${row.start}px)` }} onAnimationEnd={event => {
+          if (event.animationName === 'mv-danmaku-message-in') { completedAnimations.current.add(key); event.currentTarget.classList.remove('mv-danmaku-row-entering'); }
         }}>
-          <DanmakuMessageCard message={message} chat={chat} repeatState={repeatState} onRepeat={onRepeat} onRepeatOpen={onRepeatOpen} hydrate={Boolean(visibleRange && row.index >= visibleRange.startIndex && row.index <= visibleRange.endIndex)} />
+          {gap ? <DanmakuGapRow gap={item} />
+            : <DanmakuMessageCard message={item} chat={chat} repeatState={repeatState} onRepeat={onRepeat} onRepeatOpen={onRepeatOpen} hydrate={Boolean(visibleRange && row.index >= visibleRange.startIndex && row.index <= visibleRange.endIndex)} />}
         </div>;
       })}
     </div>

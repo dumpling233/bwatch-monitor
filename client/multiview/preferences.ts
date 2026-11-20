@@ -9,6 +9,8 @@ export const MIN_SIDEBAR_WIDTH = 360;
 export const MAX_SIDEBAR_WIDTH = 420;
 export const MIN_GRID_GAP = 0;
 export const MAX_GRID_GAP = 5;
+export const MIN_ROOM_AUDIO_BALANCE = -100;
+export const MAX_ROOM_AUDIO_BALANCE = 100;
 export const ONLINE_COUNT_POSITIONS = ['hidden', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 export type OnlineCountPosition = typeof ONLINE_COUNT_POSITIONS[number];
 export function normalizeSidebarWidth(value: unknown): number {
@@ -19,7 +21,11 @@ export function normalizeGridGap(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.round(Math.min(MAX_GRID_GAP, Math.max(MIN_GRID_GAP, value))) : 2;
 }
-export interface RoomPlaybackPreference { volume: number; muted: boolean; quality: number; mediaMode?: PlaybackMediaMode }
+export function normalizeRoomAudioBalance(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.round(Math.min(MAX_ROOM_AUDIO_BALANCE, Math.max(MIN_ROOM_AUDIO_BALANCE, value))) || 0;
+}
+export interface RoomPlaybackPreference { volume: number; balance: number; muted: boolean; quality: number; mediaMode?: PlaybackMediaMode }
 export interface MultiviewPreferences {
   version: 1;
   adaptiveGridEnabled: boolean;
@@ -42,7 +48,7 @@ export interface MultiviewPreferences {
   danmaku: DanmakuPreferences;
 }
 
-export const defaultRoomPreference = (): RoomPlaybackPreference => ({ volume: 0.7, muted: true, quality: 0 });
+export const defaultRoomPreference = (): RoomPlaybackPreference => ({ volume: 0.7, balance: 0, muted: true, quality: 0 });
 export const defaultPreferences = (): MultiviewPreferences => ({ version: 1, adaptiveGridEnabled: false, roomIds: [], slotRoomIds: resetSlotRoomIds([], findLayout(DEFAULT_LAYOUT_ID).count), layoutId: DEFAULT_LAYOUT_ID,
   sidebarOpen: true, sidebarWidth: MIN_SIDEBAR_WIDTH, gridGap: 2, sidebarSide: 'left', stopHidden: true, playbackMode: 'stable', autoReconnect: true, switchbarTop: false, autoHideControls: true, onlineCountPosition: 'hidden',
   masterMuted: true, masterVolume: 1, rooms: {}, danmaku: defaultDanmakuPreferences() });
@@ -73,7 +79,7 @@ export function validatePreferences(value: unknown): MultiviewPreferences {
   for (const id of roomIds) {
     const source = isRecord(value.rooms) && isRecord(value.rooms[id]) ? value.rooms[id] : {};
     const mediaMode = source.mediaMode === 'audio' ? 'audio' : undefined;
-    rooms[id] = { volume: unit(source.volume, 0.7), muted: bool(source.muted, true),
+    rooms[id] = { volume: unit(source.volume, 0.7), balance: normalizeRoomAudioBalance(source.balance), muted: bool(source.muted, true),
       quality: isPlaybackQuality(source.quality) ? source.quality : 0,
       ...(mediaMode ? { mediaMode } : {}) };
   }

@@ -49,14 +49,24 @@ export interface DanmakuMessage {
   color: string;
   sourceTime: number;
   receivedAt: number;
+  /** Local connection epoch orders same-millisecond messages around an interruption. */
+  connectionGeneration?: number;
   price?: number;
   scColors?: import('./superChatColors').SuperChatColors;
+}
+
+export interface DanmakuGap {
+  id: string;
+  startedAt: number;
+  endedAt?: number;
+  reason: 'background' | 'disconnected' | 'paused';
+  interruptedGeneration?: number;
 }
 
 export interface DanmakuRoomState {
   status: 'idle' | 'connecting' | 'live' | 'retrying' | 'error';
   receiveMode?: 'anonymous' | 'authenticated';
-  hasGap?: boolean;
+  gaps?: readonly DanmakuGap[];
   error?: string;
   retryAt?: number;
   messages: DanmakuMessage[];
@@ -91,6 +101,6 @@ export interface DanmakuBatchRoom {
 }
 
 export type DanmakuWorkerEvent =
-  | { type: 'state'; roomId: string; generation: number; state: DanmakuConnectionState }
+  | { type: 'state'; roomId: string; generation: number; state: DanmakuConnectionState; occurredAt?: number }
   | { type: 'events'; roomId: string; generation: number; events: DanmakuEvent[] }
   | { type: 'batch'; batchId: number; rooms: DanmakuBatchRoom[] };

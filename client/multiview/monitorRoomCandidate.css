@@ -28,7 +28,7 @@
 }
 .mv-shell .mv-candidate.mv-room-candidate[data-custom="true"].mv-selected { border-color: #3d3748; }
 .mv-shell .mv-candidate.mv-room-candidate.mv-candidate-live,
-.mv-shell .mv-candidate.mv-room-candidate[data-custom="true"].mv-candidate-live { border-color: #3fb950; }
+.mv-shell .mv-candidate.mv-room-candidate[data-custom="true"].mv-candidate-live { border-color: var(--mv-live-border); }
 .mv-room-candidate[data-placement-dragging="true"] { opacity: .45; }
 .mv-shell .mv-candidate-main {
   display: flex;

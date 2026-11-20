@@ -15,6 +15,7 @@
   --accent: #2f81f7;
   --accent-soft: #1f3a5f;
   --sky: #58a6ff;
+  --switch-green-foreground: #7ee787;
   --amber: #d29922;
   --danger: #f85149;
   --scroll-track: #0b1214;
@@ -329,10 +330,15 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .rolling-number { display: inline-flex; align-items: baseline; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .metric-strip strong .rolling-number,
 .metric-strip strong .rolling-number span { color: inherit; font-size: inherit; font-weight: inherit; }
-.rolling-number-digit { display: inline-block; height: 1em; min-width: .62em; overflow: hidden; vertical-align: bottom; }
-.rolling-number-track { display: flex; flex-direction: column; height: 10em; line-height: 1em; transform: translateY(0); }
+.rolling-number-digit { position: relative; display: inline-block; height: 1em; min-width: .62em; overflow: hidden; vertical-align: bottom; }
+/* The normal-flow value preserves glyph width and paints without a transformed
+   layer once the animation ends, keeping text stable at fractional zoom. */
+.rolling-number-value { display: block; height: 1em; line-height: 1em; text-align: center; }
+.rolling-number-track { position: absolute; top: 0; left: 0; display: block; width: 100%; height: 10em; line-height: 1em; transform: translateY(0); }
 .rolling-number-track.is-rolling { transition: transform .42s cubic-bezier(.22, .7, .32, 1); }
-.rolling-number-track > span { display: block; height: 1em; text-align: center; }
+/* Position every row against the same track used by translateY. Stacking
+   individually rounded em rows accumulates an offset at fractional zoom. */
+.rolling-number-track > span { position: absolute; left: 0; display: block; width: 100%; height: 10%; text-align: center; }
 .rolling-number-static { display: inline-block; }
 
 .primary, .secondary { min-height: 40px; padding: 9px 15px; border-radius: 6px; font-size: 13px; font-weight: 700; transition: background .18s, border-color .18s, box-shadow .18s, color .18s; }
@@ -2592,7 +2598,7 @@ select {
   --switch-active-border: #2ea043;
   --switch-active-surface: #0d3b21;
   --switch-active-surface-hover: #124d2a;
-  --switch-active-foreground: #7ee787;
+  --switch-active-foreground: var(--switch-green-foreground);
   border-width: 1px;
   border-style: solid;
   border-color: var(--switch-border);
@@ -3020,6 +3026,7 @@ select {
 }
 .room-metrics strong .rolling-number > span,
 .room-metrics strong .rolling-number .rolling-number-digit,
+.room-metrics strong .rolling-number .rolling-number-value,
 .room-metrics strong .rolling-number .rolling-number-track,
 .room-metrics strong .rolling-number .rolling-number-track > span,
 .room-metrics strong .rolling-number .rolling-number-static {

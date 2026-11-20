@@ -155,7 +155,7 @@ test('replacing a room also drops its saved playback and danmaku preferences', (
   const value = defaultPreferences();
   value.roomIds = ['1', '2'];
   value.slotRoomIds = ['1', '2', null, null];
-  value.rooms = { '1': defaultRoomPreference(), '2': { volume: 0.2, muted: false, quality: 150 } };
+  value.rooms = { '1': defaultRoomPreference(), '2': { volume: 0.2, balance: -48, muted: false, quality: 150 } };
   value.danmaku.rooms = { '1': { enabled: true }, '2': { enabled: true } };
   const result = retainAllowedRooms(value, new Set(['1', '3']));
   assert.deepEqual(result.roomIds, ['1']);

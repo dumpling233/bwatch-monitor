@@ -159,15 +159,30 @@ function RollingDigit({ from, to, token }: { from: string; to: string; token: nu
   const toValue = Number(to);
   const changed = fromValue !== toValue;
   const [settled, setSettled] = useState(!changed);
+  const [finished, setFinished] = useState(!changed);
   useEffect(() => {
-    if (!changed) return undefined;
+    if (!changed || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setSettled(true);
+      setFinished(true);
+      return undefined;
+    }
     const frame = window.requestAnimationFrame(() => setSettled(true));
-    return () => window.cancelAnimationFrame(frame);
+    // Hidden pages and cancelled transitions may never dispatch transitionend.
+    const timeout = window.setTimeout(() => setFinished(true), 500);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
   }, [changed, token]);
   return <span className="rolling-number-digit" aria-hidden="true">
-    <span className={`rolling-number-track ${changed ? 'is-rolling' : ''}`} style={{ transform: `translateY(-${(settled ? toValue : fromValue) * 10}%)` }}>
-      {Array.from({ length: 10 }, (_, digit) => <span key={digit}>{digit}</span>)}
-    </span>
+    <span className="rolling-number-value" style={{ visibility: finished ? undefined : 'hidden' }}>{to}</span>
+    {!finished && <span className="rolling-number-track is-rolling"
+      style={{ transform: `translateY(-${(settled ? toValue : fromValue) * 10}%)` }}
+      onTransitionEnd={event => {
+        if (event.target === event.currentTarget && event.propertyName === 'transform') setFinished(true);
+      }}>
+      {Array.from({ length: 10 }, (_, digit) => <span key={digit} style={{ top: `${digit * 10}%` }}>{digit}</span>)}
+    </span>}
   </span>;
 }
 

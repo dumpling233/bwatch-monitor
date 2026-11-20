@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, Bold, Layers, Medal, MessageSquare, MessageSquareOff, Minus, RefreshCw, RotateCcw, ScrollText, SlidersHorizontal, Type } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Bold, Layers, MessageSquare, MessageSquareOff, Minus, RefreshCw, RotateCcw, ScrollText, SlidersHorizontal, Type } from 'lucide-react';
 import { AnimatedCollapse, SegmentedControl, ToggleButton, UiSelect, UiSlider } from '../../ui';
 import type { DanmakuMessage, DanmakuRoomState } from './types';
 import { danmakuFonts, danmakuTextEffects, defaultDanmakuStyle, isDanmakuBlocked, roomDanmakuStyle, type DanmakuFontFamily, type DanmakuPreferences, type DanmakuStyle } from './displayPreferences';
 import { DanmakuComposer, type DanmakuChatAdapter, type DanmakuComposerHandle } from './DanmakuComposer';
+import { DanmakuMedalToggles, type DanmakuMedalToggleControls } from './DanmakuMedalToggles';
 import type { DanmakuRepeatContent, DanmakuRepeatState } from './repeatMessage';
 import { DanmakuVirtualList } from './DanmakuVirtualList';
 import type { DanmakuHistoryView } from './store';
@@ -64,6 +65,7 @@ type UserScrollIntent = { direction: 'older' | 'newer' | 'scrollbar'; until: num
 
 export function DanmakuSidebar(props: DanmakuSidebarProps) {
   const { roomIds, roomName, currentRoomId, onRoomChange, rooms, preferences, onChange, onReconnect, onViewChange, chat, active = true } = props;
+  const medalToggles: DanmakuMedalToggleControls = { preferences, onToggle: (key, value) => onChange({ ...preferences, [key]: value }) };
   const [mode, setMode] = useState<'danmaku' | 'sc'>('danmaku');
   const [autoScroll, setAutoScroll] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -371,11 +373,10 @@ export function DanmakuSidebar(props: DanmakuSidebarProps) {
             <span className="mv-danmaku-record-count">{messages.length} 条{mode === 'sc' ? ' SC' : '弹幕'}</span>
           </div>
         </div>
-        <AnimatedCollapse open={Boolean(state?.error || state?.status === 'error' || state?.hasGap)} className="mv-danmaku-error-collapse"><div className="mv-danmaku-notices">
+        <AnimatedCollapse open={Boolean(state?.error || state?.status === 'error')} className="mv-danmaku-error-collapse"><div className="mv-danmaku-notices">
           {(state?.error || state?.status === 'error') && <div className="mv-danmaku-connection-notice"><p className="mv-danmaku-error" role="status">{state?.error || '暂时无法连接弹幕。'}</p>
             {state?.status === 'error' && <button type="button" className="mv-text-button" aria-label="重新连接弹幕" onClick={() => { if (currentRoomId) onReconnect(currentRoomId); }}><RefreshCw size={12} />重试连接</button>}
           </div>}
-          {state?.hasGap && <p className="mv-danmaku-gap" role="status">后台暂停期间可能缺少部分弹幕</p>}
         </div></AnimatedCollapse>
       </div>
       <div className="mv-danmaku-log-area">
@@ -405,13 +406,13 @@ export function DanmakuSidebar(props: DanmakuSidebarProps) {
             else if (['ArrowDown', 'PageDown', ' '].includes(event.key)) noteUserScroll('newer');
           }}
           onScroll={event => handleListScroll(event.currentTarget)}>
-          <DanmakuVirtualList key={`${viewportScope}:${contextKey}`} messages={messages} scrollRef={listRef} scrollElement={listElement} onScrollCompensation={recordProgrammaticScroll} chat={chat} repeatState={repeatState} onRepeat={repeatMessage} onRepeatOpen={pauseForRepeat} paused={!active || showSettings || !foreground}
+          <DanmakuVirtualList key={`${viewportScope}:${contextKey}`} messages={messages} gaps={state?.gaps} scrollRef={listRef} scrollElement={listElement} onScrollCompensation={recordProgrammaticScroll} chat={chat} repeatState={repeatState} onRepeat={repeatMessage} onRepeatOpen={pauseForRepeat} paused={!active || showSettings || !foreground}
             initialViewport={initialViewport} following={viewportFollowing} onViewportReady={handleViewportReady} onViewportChange={rememberViewport} />
-          {!messages.length && <div className="mv-danmaku-empty" key={contextKey}><span aria-hidden="true">{mode === 'sc' ? <ScrollText size={24} /> : <MessageSquare size={24} />}</span><p>{!currentRoomId ? '选择直播间后查看弹幕' : state?.status === 'error' || state?.status === 'retrying' ? '连接恢复后将继续接收弹幕' : mode === 'sc' ? '暂无 SC 消息' : '等待新的弹幕…'}</p></div>}
+          {!messages.length && !state?.gaps?.length && <div className="mv-danmaku-empty" key={contextKey}><span aria-hidden="true">{mode === 'sc' ? <ScrollText size={24} /> : <MessageSquare size={24} />}</span><p>{!currentRoomId ? '选择直播间后查看弹幕' : state?.status === 'error' || state?.status === 'retrying' ? '连接恢复后将继续接收弹幕' : mode === 'sc' ? '暂无 SC 消息' : '等待新的弹幕…'}</p></div>}
         </div>
         <div className="mv-danmaku-jump" data-visible={!autoScroll} aria-hidden={autoScroll} inert={autoScroll}><button className="mv-text-button" onClick={() => resumeScroll(true)}><ArrowDown size={13} />{unseen ? `${unseen} 条新消息 · 回到最新` : '回到最新'}</button></div>
       </div>
-      <DanmakuComposer roomId={currentRoomId} chat={chat} active={active && !showSettings && foreground} repeatRef={composerRef} onRepeatStateChange={setRepeatState} onRepeatSubmitted={handleRepeatSubmitted} />
+      <DanmakuComposer roomId={currentRoomId} chat={chat} medalToggles={medalToggles} active={active && !showSettings && foreground} repeatRef={composerRef} onRepeatStateChange={setRepeatState} onRepeatSubmitted={handleRepeatSubmitted} />
     </div>
     <div className="mv-danmaku-view mv-danmaku-settings-view" data-testid="danmaku-settings-view" aria-hidden={!showSettings} inert={!showSettings}>
       <header className="mv-danmaku-settings-heading"><button ref={backRef} className="mv-icon-button" aria-label="返回弹幕列表" title="返回弹幕列表" onClick={() => changeSettings(false)}><ArrowLeft size={16} /></button><div><strong>弹幕设置</strong><small>显示样式与账号发言</small></div></header>
@@ -424,9 +425,8 @@ export function DanmakuSidebar(props: DanmakuSidebarProps) {
         <StyleEditor value={selectedStyle} onChange={changeStyle} label={settingsRoom ? `${roomName(settingsRoom)}弹幕` : '全局弹幕'} />
         <button className="mv-text-button mv-danmaku-reset" onClick={() => changeStyle(defaultDanmakuStyle())}><RotateCcw size={13} />恢复默认样式</button>
         <section className="mv-danmaku-settings-section mv-danmaku-account-settings" aria-label="账号发言设置"><h4>账号发言</h4>
-          <ToggleButton active={preferences.autoWearRoomMedal === true} label="切房自动佩戴勋章" ariaLabel="切房自动佩戴勋章" onIcon={<Medal size={14} />} offIcon={<Medal size={14} />}
-            onChange={() => onChange({ ...preferences, autoWearRoomMedal: preferences.autoWearRoomMedal !== true })} />
-          <p>切换弹幕直播间时，自动佩戴该主播的勋章；没有则保留当前勋章。佩戴状态会同步到 B站账号。</p>
+          <DanmakuMedalToggles {...medalToggles} />
+          <p>切房时可自动佩戴对应勋章，找不到时保留当前勋章。佩戴状态同步到 B站账号。</p>
         </section>
       </div>
     </div>

@@ -2,12 +2,13 @@ import type { DanmakuBootstrap } from '../../../shared/danmaku';
 import { MAX_ADAPTIVE_GRID_ROOMS } from '../adaptiveGrid';
 import { DanmakuStore, type DanmakuHistoryView } from './store';
 import { messageBytes } from './budget';
-import type { DanmakuEvent, DanmakuMessage, DanmakuRoomState, DanmakuWorkerCommand, DanmakuWorkerEvent } from './types';
+import type { DanmakuEvent, DanmakuGap, DanmakuMessage, DanmakuRoomState, DanmakuWorkerCommand, DanmakuWorkerEvent } from './types';
 
 const emptyHistory: DanmakuMessage[] = [];
+const MAX_GAPS_PER_ROOM = 32;
 type ConnectionState = Omit<DanmakuRoomState, 'messages' | 'superChats'>;
 const sameProjection = (previous: DanmakuRoomState, current: DanmakuRoomState): boolean => previous.status === current.status
-  && previous.receiveMode === current.receiveMode && previous.hasGap === current.hasGap && previous.error === current.error && previous.retryAt === current.retryAt
+  && previous.receiveMode === current.receiveMode && previous.gaps === current.gaps && previous.error === current.error && previous.retryAt === current.retryAt
   && previous.messages === current.messages && previous.superChats === current.superChats;
 
 interface Entry {
@@ -48,6 +49,7 @@ export class DanmakuManager {
   private publishedSnapshot?: Record<string, DanmakuRoomState>;
   private forcePublication = false;
   private activeRooms?: Set<string>;
+  private demandedRooms = new Set<string>();
   private bootstrapActive = 0;
   private readonly bootstrapQueue: Array<{ roomId: string; signal: AbortSignal; start(): void }> = [];
   private priorities = new Map<string, number>();
@@ -72,6 +74,22 @@ export class DanmakuManager {
     const previous = this.connectionStates.get(roomId);
     this.connectionStates.set(roomId, { status: 'idle', ...previous, ...state, messages: emptyHistory, superChats: emptyHistory });
   }
+  private startGap(roomId: string, entry: Entry, reason: DanmakuGap['reason'], startedAt = this.now()): void {
+    const state = this.connectionStates.get(roomId);
+    const gaps = state?.gaps ?? [];
+    const last = gaps.at(-1);
+    if (state?.status !== 'live' || last && last.endedAt === undefined) return;
+    const generation = entry.generation;
+    this.setState(roomId, { gaps: [...gaps.slice(-(MAX_GAPS_PER_ROOM - 1)), {
+      id: String(generation), startedAt, reason, interruptedGeneration: generation,
+    }] });
+  }
+  private endGap(roomId: string, generation: number, endedAt = this.now()): void {
+    const gaps = this.connectionStates.get(roomId)?.gaps;
+    const last = gaps?.at(-1);
+    if (!gaps || !last || last.endedAt !== undefined || generation <= (last.interruptedGeneration ?? -1)) return;
+    this.setState(roomId, { gaps: [...gaps.slice(0, -1), { ...last, endedAt: Math.max(endedAt, last.startedAt) }] });
+  }
   private publish(): void {
     const previous = this.publishedSnapshot;
     const rooms: Record<string, DanmakuRoomState> = {};
@@ -85,7 +103,8 @@ export class DanmakuManager {
       // retained histories or publishing incoming messages behind settings.
       const frozen = selected && this.publishedView === 'none' ? previous?.[roomId] : undefined;
       const messages = frozen?.messages ?? current.messages, superChats = frozen?.superChats ?? current.superChats;
-      const projected = { ...current, messages: messages.length ? messages : emptyHistory,
+      const gaps = selected ? (this.publishedView === 'none' ? frozen?.gaps : current.gaps) : undefined;
+      const projected = { ...current, gaps, messages: messages.length ? messages : emptyHistory,
         superChats: superChats.length ? superChats : emptyHistory };
       const last = previous?.[roomId];
       if (last && sameProjection(last, projected)) rooms[roomId] = last;
@@ -114,31 +133,43 @@ export class DanmakuManager {
     } else this.changed();
   }
   /** Suspend transport only; histories remain bounded and available on foreground restore. */
-  setActiveRooms(roomIds: readonly string[], _sources?: Readonly<Record<string, 'custom'>>): void {
+  setActiveRooms(roomIds: readonly string[]): void {
     this.activeRooms = new Set(roomIds);
     const priority = new Map(roomIds.map((id, index) => [id, index]));
     for (const [roomId, entry] of [...this.entries].sort(([a], [b]) => (priority.get(a) ?? 999) - (priority.get(b) ?? 999))) {
-      const active = this.activeRooms.has(roomId);
-      if (active === entry.active) continue;
-      entry.active = active;
-      if (!active) {
-        this.stop(roomId, entry); entry.generation = ++this.sequence;
-        this.setState(roomId, { status: 'idle', retryAt: undefined, error: undefined, hasGap: true });
-      } else if (!entry.terminal) void this.connect(roomId, entry);
+      this.setEntryActive(roomId, entry, this.demandedRooms.has(roomId) && this.activeRooms.has(roomId), 'background');
     }
     this.changed();
   }
-  setRooms(roomIds: readonly string[], sources?: Readonly<Record<string, 'custom'>>): void {
+  private setEntryActive(roomId: string, entry: Entry, active: boolean, reason: 'background' | 'paused'): void {
+    if (active === entry.active) return;
+    entry.active = active;
+    if (!active) {
+      this.startGap(roomId, entry, reason);
+      this.stop(roomId, entry); entry.generation = ++this.sequence;
+      if (!entry.terminal) this.setState(roomId, { status: 'idle', retryAt: undefined, error: undefined });
+    } else if (!entry.terminal) void this.connect(roomId, entry);
+  }
+  setRooms(roomIds: readonly string[], sources?: Readonly<Record<string, 'custom'>>,
+    retainedRoomIds: readonly string[] = roomIds, activeRoomIds?: readonly string[]): void {
     if (this.disposed) return;
     const wanted = new Set([...new Set(roomIds.filter(id => /^[1-9][0-9]*$/.test(id)))].slice(0, MAX_ADAPTIVE_GRID_ROOMS));
+    this.demandedRooms = wanted;
+    if (activeRoomIds) this.activeRooms = new Set(activeRoomIds);
+    const retained = new Set([...new Set([...wanted, ...retainedRoomIds])].slice(0, MAX_ADAPTIVE_GRID_ROOMS));
     this.priorities = new Map([...wanted].map((id, index) => [id, index]));
-    for (const [roomId, entry] of this.entries) if (!wanted.has(roomId) || entry.source !== (sources?.[roomId] ?? 'custom')) {
-      this.stop(roomId, entry); this.entries.delete(roomId); this.store.remove(roomId); this.connectionStates.delete(roomId); this.snapshotRevisions.delete(roomId);
+    for (const [roomId, entry] of this.entries) {
+      if (!retained.has(roomId) || entry.source !== (sources?.[roomId] ?? 'custom')) {
+        this.stop(roomId, entry); this.entries.delete(roomId); this.store.remove(roomId); this.connectionStates.delete(roomId); this.snapshotRevisions.delete(roomId);
+      } else {
+        const demanded = wanted.has(roomId);
+        this.setEntryActive(roomId, entry, demanded && (!this.activeRooms || this.activeRooms.has(roomId)), demanded ? 'background' : 'paused');
+      }
     }
     for (const roomId of wanted) if (!this.entries.has(roomId)) {
       const entry: Entry = { source: sources?.[roomId] ?? 'custom', generation: ++this.sequence, clearVersion: 0, hostIndex: 0, failures: 0,
         active: !this.activeRooms || this.activeRooms.has(roomId) };
-      this.entries.set(roomId, entry); this.setState(roomId, { status: 'connecting' });
+      this.entries.set(roomId, entry); this.setState(roomId, { status: entry.active ? 'connecting' : 'idle' });
       if (entry.active) void this.connect(roomId, entry);
     }
     this.changed();
@@ -278,12 +309,15 @@ export class DanmakuManager {
       this.deliver(event.roomId, event.events);
       this.changed(true);
     } else if (event.state.status === 'error') {
+      this.startGap(event.roomId, entry, 'disconnected', event.occurredAt);
       this.dropStaging(event.roomId);
       entry.hostIndex++;
       this.retry(event.roomId, entry, event.state.error || '弹幕连接已断开');
     } else {
+      if (event.state.status === 'live' && entry.timer) return;
       this.setState(event.roomId, { ...event.state, error: undefined, retryAt: undefined }); this.changed();
       if (event.state.status === 'live') {
+        this.endGap(event.roomId, event.generation, event.occurredAt);
         clearTimeout(entry.healthyTimer);
         entry.healthyTimer = setTimeout(() => { if (this.valid(event.roomId, entry, event.generation)) entry.failures = 0; }, 30000);
       }
@@ -300,12 +334,12 @@ export class DanmakuManager {
     const entry = this.entries.get(roomId);
     if (!entry) return;
     this.io.post({ type: 'clear', roomId, generation: entry.generation, clearVersion: ++entry.clearVersion });
-    this.dropStaging(roomId); this.store.clear(roomId); this.setState(roomId, { hasGap: false });
+    this.dropStaging(roomId); this.store.clear(roomId); this.setState(roomId, { gaps: undefined });
     const frozen = this.publishedView === 'none' ? this.publishedSnapshot?.[roomId] : undefined;
-    if (frozen && (frozen.messages.length || frozen.superChats.length)) {
+    if (frozen && (frozen.messages.length || frozen.superChats.length || frozen.gaps?.length)) {
       // Explicit clear also releases a paused view's frozen reading snapshot.
       // If UI publication is suspended, deliver this empty projection on resume.
-      this.publishedSnapshot = { ...this.publishedSnapshot, [roomId]: { ...frozen, messages: emptyHistory, superChats: emptyHistory, hasGap: false } };
+      this.publishedSnapshot = { ...this.publishedSnapshot, [roomId]: { ...frozen, messages: emptyHistory, superChats: emptyHistory, gaps: undefined } };
       if (this.publishing) this.io.changed(this.publishedSnapshot);
       else this.forcePublication = true;
     }
@@ -314,6 +348,7 @@ export class DanmakuManager {
   reconnect(roomId: string): void {
     const entry = this.entries.get(roomId);
     if (!entry || !entry.active || (entry.retryAt && entry.retryAt > this.now())) return;
+    this.startGap(roomId, entry, 'paused');
     this.stop(roomId, entry); entry.terminal = false; entry.bootstrap = undefined; entry.hostIndex = 0;
     void this.connect(roomId, entry, true);
   }
@@ -329,7 +364,7 @@ export class DanmakuManager {
     this.disposed = true; clearTimeout(this.publishTimer);
     clearTimeout(this.connectTimer); this.connectQueue.length = 0;
     for (const [roomId, entry] of this.entries) this.stop(roomId, entry);
-    this.entries.clear(); this.listeners.clear(); this.store.reset();
+    this.entries.clear(); this.demandedRooms.clear(); this.listeners.clear(); this.store.reset();
     this.connectionStates.clear(); this.publishedSnapshot = undefined;
     this.staging.clear(); this.stagedBytes = 0;
     this.snapshotRevisions.clear();

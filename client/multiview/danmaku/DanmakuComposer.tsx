@@ -7,6 +7,7 @@ import { DanmakuEmotePicker } from './DanmakuEmotePicker';
 import { repeatContentRestriction, type DanmakuRepeatContent, type DanmakuRepeatState } from './repeatMessage';
 import { emoticonUseRestriction } from './emoticonUse';
 import { DanmakuMedalPicker } from './DanmakuMedalPicker';
+import type { DanmakuMedalToggleControls } from './DanmakuMedalToggles';
 import type { DanmakuMedalAdapter } from '../localMedalClient';
 
 export interface DanmakuChatAdapter {
@@ -67,8 +68,8 @@ function ComposerFeedback({ text, kind, active }: { text: string; kind?: Feedbac
 }
 
 /** Sending belongs to a room and account authorization, independently of transport renewal. */
-export function DanmakuComposer({ roomId, chat, active = true, repeatRef, onRepeatStateChange, onRepeatSubmitted }: {
-  roomId: string | null; chat?: DanmakuChatAdapter; active?: boolean; repeatRef?: Ref<DanmakuComposerHandle>;
+export function DanmakuComposer({ roomId, chat, medalToggles, active = true, repeatRef, onRepeatStateChange, onRepeatSubmitted }: {
+  roomId: string | null; chat?: DanmakuChatAdapter; medalToggles?: DanmakuMedalToggleControls; active?: boolean; repeatRef?: Ref<DanmakuComposerHandle>;
   onRepeatStateChange?: (state: DanmakuRepeatState | null) => void;
   onRepeatSubmitted?: () => void;
 }) {
@@ -274,7 +275,7 @@ export function DanmakuComposer({ roomId, chat, active = true, repeatRef, onRepe
   return <div className="mv-danmaku-composer">
     <div className="mv-danmaku-compose-input-row">
       <DanmakuMedalPicker adapter={chat?.medals} active={active && canConnect} disabled={Boolean(currentPending)} open={medalOpenKey === medalKey}
-        onOpenChange={setShowMedals} onSetup={chat?.openMedalSetup} />
+        toggles={medalToggles} onOpenChange={setShowMedals} onSetup={chat?.openMedalSetup} />
       <input ref={inputRef} type="text" autoComplete="off" aria-label="发送弹幕" placeholder="发个弹幕吧~" title={currentPending ? currentFeedback?.kind === 'progress' ? '发送中…' : '请先确认发送结果' : !context ? '暂时无法发送，请稍候' : context.muted ? '当前直播间暂时无法发言' : 'Enter 发送弹幕'} maxLength={1000} disabled={!context || context.muted || Boolean(currentPending)} value={draft}
         onCompositionStart={() => { composingRef.current = true; }} onCompositionEnd={() => { composingRef.current = false; }} onChange={event => writeDraft(event.target.value)}
         onPaste={event => {

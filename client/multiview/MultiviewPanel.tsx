@@ -32,7 +32,9 @@ import { useSidebarRoomDrag } from './useSidebarRoomDrag';
 import { RoomPlacementSurface, PlacementUndoToast, placementDescription, type PlacementDraft } from './RoomPlacementSurface';
 import { AdaptiveGridDetails, LayoutModeControl, MonitorSettings } from './MonitorSettings';
 import { ShortcutAudioControl } from './ShortcutAudioControl';
-import { setRoomAudioVolume, toggleRoomAudio } from './audio';
+import { MixerRoomAudio } from './RoomAudioBalance';
+import { preparePlaybackAudio } from './playbackAudioBalance';
+import { setRoomAudioBalance, setRoomAudioVolume, toggleRoomAudio } from './audio';
 import { useIdleControls } from './useIdleControls';
 import { useDanmaku } from './danmaku/useDanmaku';
 import { DanmakuOverlay } from './danmaku/DanmakuOverlay';
@@ -159,13 +161,14 @@ export function MultiviewPanel() {
   const [preferredRoutes, setPreferredRoutes] = useState<Record<string, string | null>>({});
   const [playbackStates, setPlaybackStates] = useState<Record<string, PlaybackState>>({});
   const [audioDeliveries, setAudioDeliveries] = useState<Record<string, 'audio-only' | 'full-stream' | null>>({});
+  const [balanceUnavailableRooms, setBalanceUnavailableRooms] = useState<ReadonlySet<string>>(new Set());
   const [autoplayResumers, setAutoplayResumers] = useState<Record<string, () => void>>({});
   const mediaIdentity = JSON.stringify(['local']);
   const [mediaStateIdentity, setMediaStateIdentity] = useState(mediaIdentity);
   useLayoutEffect(() => {
     setPlaybackInfos({}); setPlaybackInfoScopes({}); setMediaOptionsStates({}); setPlaybackSources({}); setPlaybackSourceScopes({});
     setPendingSources({}); setRouteSelections({}); setPreferredRoutes({}); setPlaybackStates({});
-    setAutoplayResumers({}); setAudioDeliveries({}); setMediaStateIdentity(mediaIdentity);
+    setAutoplayResumers({}); setAudioDeliveries({}); setBalanceUnavailableRooms(new Set()); setMediaStateIdentity(mediaIdentity);
   }, ['local']);
   useLayoutEffect(() => {
     const allowed = (scope?: string) => scope === 'anonymous' || scope === localLogin.authSessionKey;
@@ -180,7 +183,8 @@ export function MultiviewPanel() {
   const following = useFollowingRooms(followingBrowse && preferences.sidebarOpen && sidebarTab === 'rooms' && pageVisible);
   const followingRef = useRef(following);
   followingRef.current = following;
-  const [notice, setNotice] = useState('');
+  const [notice, setNoticeState] = useState<{ text: string; visible: boolean } | null>(null);
+  const setNotice = useCallback((text: string) => setNoticeState({ text, visible: true }), []);
   const [storageError, setStorageError] = useState(false);
   const [previewSlots, setPreviewSlots] = useState<RoomSlot[] | null>(null);
   const [resizingSidebar, setResizingSidebar] = useState(false);
@@ -510,7 +514,7 @@ export function MultiviewPanel() {
   }, []);
   const openChatSetup = () => openAccountSetup('chat');
   const chatAdapter = { ...localChat.chat, openSetup: openChatSetup, enable: openChatSetup, openMedalSetup: () => openAccountSetup('medals'), onDraftPresenceChange: setChatHasDrafts };
-  const danmaku = useDanmaku({ roomIds: danmakuRoomIds, roomSources, visibilityRevision: 'local',
+  const danmaku = useDanmaku({ roomIds: danmakuRoomIds, retainedRoomIds: ready ? selectedIds : [], roomSources, visibilityRevision: 'local',
     identityScope: localChat.scope, bootstrapReady: localChat.ready, resolveBootstrap: localChat.local ? localChat.bootstrap : undefined,
     publishedRoomId: currentDanmakuRoom,
     publishedView: preferences.sidebarOpen && sidebarTab === 'danmaku' && !controlsHidden ? danmakuPublishedView : 'none',
@@ -605,7 +609,11 @@ export function MultiviewPanel() {
       new Set([...refreshPlan.baseDemand, ...(!document.hidden ? refreshPlan.browseDemand : [])]));
   }, [refreshPlan, pageVisible]);
   useEffect(() => { if (ready) setStorageError(!writeMultiviewPreferences(preferences)); }, [preferences, ready]);
-  useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 4000); return () => window.clearTimeout(timer); }, [notice]);
+  useEffect(() => {
+    if (!notice?.visible) return;
+    const timer = window.setTimeout(() => setNoticeState(current => current === notice ? { ...notice, visible: false } : current), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   useEffect(() => {
     const update = () => setFullscreen(Boolean(document.fullscreenElement && rootRef.current?.contains(document.fullscreenElement)));
     document.addEventListener('fullscreenchange', update); return () => document.removeEventListener('fullscreenchange', update);
@@ -725,6 +733,10 @@ export function MultiviewPanel() {
   const effectiveMuted = (id: string) => preferences.masterMuted || roomPreference(id).muted || roomPreference(id).volume === 0 || preferences.masterVolume === 0;
   const toggleAudio = (id: string) => setPreferences(value => toggleRoomAudio(value, id));
   const changeVolume = (id: string, volume: number) => setPreferences(value => setRoomAudioVolume(value, id, volume));
+  const changeBalance = (id: string, balance: number) => {
+    if (balance !== 0) preparePlaybackAudio();
+    setPreferences(value => setRoomAudioBalance(value, id, balance));
+  };
   const ensureWatching = (input: MonitorRoomDescriptor) => {
     const id = input.roomId;
     if (!ready) return false;
@@ -887,9 +899,10 @@ export function MultiviewPanel() {
             <div className="mv-mixer-master"><label>总音量 <b>{Math.round(preferences.masterVolume * 100)}%</b></label><div className="mv-volume-row"><button className="mv-icon-button" aria-label={masterSilenced ? '混音器取消全部静音' : '混音器全部静音'} aria-pressed={masterSilenced} onClick={toggleMasterAudio}>{masterSilenced ? <VolumeX /> : <Volume2 />}</button><input type="range" min="0" max="1" step="0.01" aria-label="总音量" value={preferences.masterVolume} onChange={event => changeMasterVolume(Number(event.target.value))} /></div></div>
             <div className="mv-mixer-rooms">{selectedIds.map(id => {
               const room = roomById.get(id)!, pref = roomPreference(id), muted = effectiveMuted(id);
-              return <div key={id} className={`mv-mixer-room${!muted ? ' mv-audible' : ''}`}><div className="mv-mixer-room-heading"><button className="mv-room-name-button" onClick={() => selectRoom(id)}>{room.anchorName}</button><span>{Math.round(pref.volume * 100)}%</span><button className="mv-icon-button" aria-label={`${room.anchorName}${muted ? '取消静音' : '静音'}`} aria-pressed={!muted} onClick={() => toggleAudio(id)}>{muted ? <VolumeX /> : <Volume2 />}</button></div>
-                <input type="range" min="0" max="1" step="0.01" aria-label={`${room.anchorName}混音音量`} value={pref.volume} onChange={event => changeVolume(id, Number(event.target.value))} />
-              </div>;
+              return <MixerRoomAudio key={id} name={room.anchorName} volume={pref.volume} muted={muted}
+                balance={pref.balance} balanceUnavailable={balanceUnavailableRooms.has(id)}
+                onSelect={() => selectRoom(id)} onToggle={() => toggleAudio(id)}
+                onVolumeChange={volume => changeVolume(id, volume)} onBalanceChange={balance => changeBalance(id, balance)} />;
             })}</div>
             {!selectedIds.length && <p className="mv-note">先选择直播间，再调节每路声音</p>}
           </>}
@@ -939,6 +952,15 @@ export function MultiviewPanel() {
               onPointerDown={event => startTilePointer(event, id)} onClickCapture={suppressClick} onDragStart={event => event.preventDefault()}
               onDoubleClick={event => { if (!shouldSuppressClick() && !(event.target as HTMLElement).closest('button,input,select,a,.mv-tile-controls,[role="combobox"],[role="listbox"],[role="option"],.ui-select-content')) toggleFocus(id); }}>
               <div className="mv-video"><LivePlayer roomId={id} source={room.source ?? 'custom'} requestedQuality={requestedQuality} muted={muted} volume={pref.volume * preferences.masterVolume} paused={paused}
+                balance={pref.balance} onBalanceUnavailable={unavailable => {
+                  if (unavailable && !selectedRef.current.includes(id)) return;
+                  setBalanceUnavailableRooms(rooms => {
+                    if (rooms.has(id) === unavailable) return rooms;
+                    const next = new Set(rooms);
+                    if (unavailable) next.add(id); else next.delete(id);
+                    return next;
+                  });
+                }}
                 resolvePlayback={request => requestPool.resolve(request, localLogin.resolutionScope)} authSessionKey={localLogin.authSessionKey}
                 resolveAudioPlayback={resolveAudioPlayback} audioCapabilityKey={audioCapabilityKey}
                 onAudioDeliveryChange={delivery => { if (selectedRef.current.includes(id)) setAudioDeliveries(values => values[id] === delivery ? values : { ...values, [id]: delivery }); }}
@@ -1069,8 +1091,9 @@ export function MultiviewPanel() {
           <ShortcutAudioControl name="总音量" variant="master" volume={preferences.masterVolume} muted={masterSilenced} idleHidden={controlsHidden}
             onToggle={toggleMasterAudio} onChange={changeMasterVolume} popupSide={preferences.switchbarTop ? 'bottom' : 'top'} />
           <div className="mv-shortcut-rooms">{selectedIds.map(id => {
-          const name = roomById.get(id)?.anchorName || id, muted = effectiveMuted(id);
-          return <span key={id} data-mv-motion={`switch-${id}`} data-audio-room-id={id} className="mv-audio-shortcut"><ShortcutAudioControl name={name} volume={roomPreference(id).volume} muted={muted} idleHidden={controlsHidden}
+          const name = roomById.get(id)?.anchorName || id, muted = effectiveMuted(id), pref = roomPreference(id);
+          return <span key={id} data-mv-motion={`switch-${id}`} data-audio-room-id={id} className="mv-audio-shortcut"><ShortcutAudioControl name={name} volume={pref.volume} muted={muted} idleHidden={controlsHidden}
+            roomBalance={{ balance: pref.balance, balanceUnavailable: balanceUnavailableRooms.has(id), onBalanceChange: balance => changeBalance(id, balance) }}
             onToggle={() => toggleAudio(id)} onChange={volume => changeVolume(id, volume)} popupSide={preferences.switchbarTop ? 'bottom' : 'top'} /></span>;
           })}</div>
           {selectedIds.length > 1 && (focusId || screenMode !== 'desktop') && <UiSelect className="mv-view-select" label="当前观看直播间" value={focusId ?? (activeId && visibleSet.has(activeId) ? activeId : visibleIds[0]) ?? ''} onChange={selectRoom}
@@ -1088,6 +1111,9 @@ export function MultiviewPanel() {
       && <PlacementUndoToast key={placementUndo.id} message={placementUndo.message} onUndo={undoPlacement} onDismiss={() => setPlacementUndo(null)} />}
     {saveUndo && <div className="mv-library-undo"><PlacementUndoToast key={saveUndo.id} message={saveUndo.message} onUndo={undoSave} onDismiss={() => setSaveUndo(null)} /></div>}
     <span className="mv-placement-announcement" role="status" aria-live="polite">{placementAnnouncement}</span>
-    {(notice || storageError) && <div className="mv-notice" role="status">{notice || '浏览器未能保存观看偏好，本次操作仍然生效'}</div>}
+    <div className="mv-notice" role="status" data-visible={Boolean(notice?.visible || storageError)}
+      aria-hidden={!notice?.visible && !storageError}>
+      {notice?.visible || !storageError ? notice?.text : '浏览器未能保存观看偏好，本次操作仍然生效'}
+    </div>
   </div>;
 }

@@ -113,6 +113,7 @@ test('pausing publication retains transport and overlay delivery and restores on
   assert.equal(h.latest()['2'].status, 'live');
   assert.equal(h.latest()['2'].messages.length, 1);
   assert.equal(h.latest()['2'].superChats.length, 1);
+  assert.equal(h.latest()['2'].gaps, undefined, 'suspending publication alone leaves reception uninterrupted');
   assert.equal(h.latest()['1'].messages.length, 0);
   h.manager.setPublishing(true); t.mock.timers.tick(100);
   assert.equal(h.publications.length, 2);
@@ -120,9 +121,106 @@ test('pausing publication retains transport and overlay delivery and restores on
   assert.equal(h.publications.length, 3);
   assert.equal(h.latest()['2'].messages.length, 0);
   assert.equal(h.latest()['2'].superChats.length, 0);
-  assert.equal(h.latest()['2'].hasGap, false);
+  assert.equal(h.latest()['2'].gaps, undefined);
   h.manager.clear('2'); t.mock.timers.tick(100);
   assert.equal(h.publications.length, 3, 'clearing an already empty projection has no visible effect');
+});
+
+test('an interrupted connection leaves one interval until a new connection actually becomes live', async t => {
+  const h = harness(t);
+  await h.start(['1', '2'], ['1']);
+  const generation = h.generation('1');
+  h.manager.receive({ type: 'state', roomId: '1', generation, state: { status: 'live' } });
+  h.manager.receive({ type: 'state', roomId: '2', generation: h.generation('2'), state: { status: 'error', error: 'initial' } });
+  const startedAt = Date.now();
+  t.mock.timers.tick(10);
+  h.manager.receive({ type: 'state', roomId: '1', generation, occurredAt: startedAt, state: { status: 'error', error: 'offline' } });
+  h.receive('1', [event('1', startedAt)]);
+  t.mock.timers.tick(100);
+  const open = h.latest()['1'];
+  assert.deepEqual(open.gaps, [{ id: String(generation), startedAt, reason: 'disconnected', interruptedGeneration: generation }]);
+  assert.equal(open.messages.length, 1, 'a buffered message from the interrupted generation remains before the boundary');
+  h.manager.setPublishedRooms(['2'], 'sc');
+  assert.equal(h.latest()['2'].gaps, undefined, 'initial connection failure has no interruption');
+  h.manager.setPublishedRooms(['1'], 'sc');
+  assert.strictEqual(h.latest()['1'].gaps, open.gaps, 'the SC timeline retains gaps even with no SC');
+  h.manager.receive({ type: 'state', roomId: '1', generation, state: { status: 'live' } });
+  assert.strictEqual(h.latest()['1'].gaps, open.gaps);
+  t.mock.timers.tick(950);
+  await flush();
+  const intermediate = h.generation('1');
+  assert.ok(intermediate > generation);
+  h.manager.receive({ type: 'state', roomId: '1', generation: intermediate, state: { status: 'error', error: 'retry failed' } });
+  t.mock.timers.tick(2000);
+  await flush();
+  const restored = h.generation('1'), endedAt = Date.now();
+  assert.ok(restored > intermediate);
+  assert.strictEqual(h.latest()['1'].gaps, open.gaps, 'connection attempts preserve the immutable open interval');
+  h.manager.receive({ type: 'state', roomId: '1', generation: restored, occurredAt: endedAt, state: { status: 'live' } });
+  t.mock.timers.tick(100);
+  assert.deepEqual(h.latest()['1'].gaps, [{ ...open.gaps![0], endedAt }]);
+  assert.equal(open.gaps![0].endedAt, undefined, 'an older viewport snapshot is immutable');
+});
+
+test('background and temporary demand suspension preserve room history until explicit clear or removal', async t => {
+  const h = harness(t);
+  await h.start(['1'], ['1']);
+  const state = (status: 'live' | 'error') => h.manager.receive({ type: 'state', roomId: '1', generation: h.generation('1'), state: { status } });
+  state('live');
+  h.receive('1', [event('1', 1)]);
+  h.manager.setPublishing(false);
+  const backgroundAt = Date.now();
+  h.manager.setActiveRooms([]);
+  t.mock.timers.tick(150);
+  h.manager.setActiveRooms(['1']);
+  await flush();
+  h.manager.setPublishing(true);
+  t.mock.timers.tick(100);
+  const background = h.latest()['1'].gaps![0];
+  assert.equal(background.startedAt, backgroundAt);
+  assert.equal(background.reason, 'background');
+  assert.equal(background.endedAt, undefined);
+  assert.equal(h.latest()['1'].messages.length, 1);
+  state('live');
+  const pauseAt = Date.now();
+  h.manager.setRooms([], undefined, ['1']);
+  t.mock.timers.tick(100);
+  const suspended = h.latest()['1'];
+  assert.deepEqual(suspended.gaps?.map(item => [item.reason, item.startedAt, item.endedAt]), [
+    ['background', backgroundAt, pauseAt], ['paused', pauseAt, undefined],
+  ]);
+  assert.equal(suspended.messages.length, 1);
+  h.manager.setRooms(['1'], undefined, ['1']);
+  await flush();
+  state('live');
+  t.mock.timers.tick(100);
+  assert.ok(h.latest()['1'].gaps?.[1].endedAt);
+  h.manager.clear('1');
+  t.mock.timers.tick(100);
+  assert.equal(h.latest()['1'].gaps, undefined);
+  h.manager.setRooms([], undefined, ['1']);
+  t.mock.timers.tick(100);
+  assert.equal(h.latest()['1'].gaps?.length, 1);
+  h.manager.setRooms([]);
+  t.mock.timers.tick(100);
+  assert.equal(h.latest()['1'], undefined);
+});
+
+test('the gap timeline keeps its 32 latest intervals independently of message volume', async t => {
+  const h = harness(t);
+  await h.start(['1'], ['1']);
+  for (let count = 0; count < 36; count++) {
+    h.manager.receive({ type: 'state', roomId: '1', generation: h.generation('1'), state: { status: 'live' } });
+    h.manager.setActiveRooms([]);
+    h.manager.setActiveRooms(['1']);
+    await flush();
+    t.mock.timers.tick(100);
+  }
+  const gaps = h.latest()['1'].gaps!;
+  assert.equal(gaps.length, 32);
+  assert.equal(new Set(gaps.map(item => item.id)).size, 32);
+  assert.ok(gaps.slice(0, -1).every(item => item.endedAt !== undefined));
+  assert.equal(gaps.at(-1)?.endedAt, undefined);
 });
 
 test('the default mode publishes complete histories, while an empty selection publishes only stable room states', async t => {

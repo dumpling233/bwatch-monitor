@@ -4,6 +4,7 @@ import { Award, Check, LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { UiPopoverContent } from '../../ui';
 import type { DanmakuMedalAdapter, LocalMedalSnapshot } from '../localMedalClient';
 import { DanmakuMedalBadge } from './DanmakuMedalBadge';
+import { DanmakuMedalToggles, type DanmakuMedalToggleControls } from './DanmakuMedalToggles';
 import '../../ui-scroll.css';
 
 const emptySnapshot: LocalMedalSnapshot = { scope: '', revision: 0, items: [], wearing: null, displayConfirmed: false, loaded: false, loading: false, changing: false, page: 0, hasMore: false, error: '', unknown: false };
@@ -11,8 +12,9 @@ const subscribeEmpty = () => () => {};
 const getEmpty = () => emptySnapshot;
 
 /** Room-context medal display. Opening it refreshes facts, never changes the medal. */
-export function DanmakuMedalPicker({ adapter, active, disabled, open, onOpenChange, onSetup }: {
+export function DanmakuMedalPicker({ adapter, active, disabled, open, toggles, onOpenChange, onSetup }: {
   adapter?: DanmakuMedalAdapter; active: boolean; disabled: boolean; open: boolean;
+  toggles?: DanmakuMedalToggleControls;
   onOpenChange(open: boolean): void; onSetup?(): void;
 }) {
   const state = useSyncExternalStore(adapter?.subscribe ?? subscribeEmpty, adapter?.getSnapshot ?? getEmpty, getEmpty);
@@ -107,6 +109,7 @@ export function DanmakuMedalPicker({ adapter, active, disabled, open, onOpenChan
       aria-label="我的粉丝勋章" returnFocusRef={triggerRef} onOpenAutoFocus={event => { event.preventDefault(); listRef.current?.focus(); }}
       onEscapeKeyDown={event => event.stopPropagation()}>
       <header><strong>我的粉丝勋章</strong><div>
+        {toggles && <DanmakuMedalToggles {...toggles} compact />}
         <button type="button" className="mv-icon-button" title="刷新粉丝勋章" aria-label="刷新粉丝勋章" disabled={state.loading || state.roomLoading || state.changing} onClick={() => read(1, true)}>
           {state.loading || state.roomLoading ? <LoaderCircle size={14} className="mv-danmaku-spinner" /> : <RefreshCw size={14} />}</button>
         <Popover.Close asChild><button className="mv-icon-button" type="button" aria-label="关闭粉丝勋章"><X size={15} /></button></Popover.Close>

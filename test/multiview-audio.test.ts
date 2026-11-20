@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setRoomAudioVolume, toggleRoomAudio } from '../client/multiview/audio';
+import { setRoomAudioBalance, setRoomAudioVolume, toggleRoomAudio } from '../client/multiview/audio';
 import { defaultPreferences, type MultiviewPreferences } from '../client/multiview/preferences';
 
 function mix(): MultiviewPreferences {
   return { ...defaultPreferences(), roomIds: ['1', '2', '3', '4'], masterMuted: false, masterVolume: 0.5,
     rooms: {
-      '1': { volume: 0.4, muted: false, quality: 80 },
-      '2': { volume: 0.6, muted: false, quality: 150 },
-      '3': { volume: 0.8, muted: true, quality: 250 },
-      '4': { volume: 0, muted: true, quality: 400 },
+      '1': { volume: 0.4, balance: -25, muted: false, quality: 80 },
+      '2': { volume: 0.6, balance: 0, muted: false, quality: 150 },
+      '3': { volume: 0.8, balance: 20, muted: true, quality: 250 },
+      '4': { volume: 0, balance: 0, muted: true, quality: 400 },
     } };
 }
 
@@ -23,6 +23,7 @@ test('room toggle during master mute starts a new mix and preserves stored room 
   assert.equal(next.masterVolume, 0.5);
   assert.deepEqual(next.roomIds.map(id => next.rooms[id].volume), [0.4, 0.6, 0.8, 0]);
   assert.deepEqual(next.roomIds.map(id => next.rooms[id].quality), [80, 150, 250, 400]);
+  assert.deepEqual(next.roomIds.map(id => next.rooms[id].balance), [-25, 0, 20, 0]);
   assert.deepEqual(audibleRooms(value), []);
   assert.equal(value.rooms['1'].muted, false);
   const expanded = toggleRoomAudio(next, '2');
@@ -73,9 +74,20 @@ test('default and 48-room watching selections share the same per-room restart ru
   const value = mix();
   value.adaptiveGridEnabled = true;
   value.roomIds = Array.from({ length: 48 }, (_, index) => String(index + 1));
-  value.rooms = Object.fromEntries(value.roomIds.map(id => [id, { volume: 0.5, muted: false, quality: 80 }]));
+  value.rooms = Object.fromEntries(value.roomIds.map(id => [id, { volume: 0.5, balance: 0, muted: false, quality: 80 }]));
   value.masterMuted = true;
   assert.deepEqual(audibleRooms(toggleRoomAudio(value, '48')), ['48']);
   const fresh = { ...defaultPreferences(), roomIds: ['1', '2'] };
   assert.deepEqual(audibleRooms(toggleRoomAudio(fresh, '2')), ['2']);
+});
+
+test('adjusting balance affects only the selected room and leaves the muted mix intact', () => {
+  const value = { ...mix(), masterMuted: true, masterVolume: 0 };
+  const adjusted = setRoomAudioBalance(value, '3', -133);
+  assert.deepEqual(adjusted, { ...value, rooms: { ...value.rooms, '3': { ...value.rooms['3'], balance: -100 } } });
+  assert.equal(value.rooms['3'].balance, 20);
+  assert.equal(adjusted.rooms['1'], value.rooms['1']);
+  assert.equal(setRoomAudioBalance(adjusted, '3', -100), adjusted);
+  assert.equal(setRoomAudioBalance(value, '5', 50), value);
+  assert.equal(setRoomAudioBalance(adjusted, '3', 0).rooms['3'].balance, 0);
 });

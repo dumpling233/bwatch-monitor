@@ -1,4 +1,4 @@
-import React, { useId, useMemo, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import React, { useId, useMemo, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import './ui-slider.css';
 
 export type UiSliderMark = { value: number; label?: string };
@@ -13,13 +13,15 @@ export interface UiSliderProps {
   marks?: readonly UiSliderMark[];
   snapToMarks?: boolean;
   formatValue?: (value: number) => ReactNode;
+  resetValue?: { label: string; onClick: () => void };
   layout?: 'stacked' | 'inline';
   className?: string;
   disabled?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 export function UiSlider({ label, ariaLabel, value, min, max, onChange, step = 1, marks = [], snapToMarks = false,
-  formatValue, layout = 'stacked', className = '', disabled = false }: UiSliderProps) {
+  formatValue, resetValue, layout = 'stacked', className = '', disabled = false, inputRef }: UiSliderProps) {
   const id = useId();
   const lower = Number.isFinite(min) ? min : 0;
   const upper = Number.isFinite(max) && max > lower ? max : lower + 1;
@@ -63,13 +65,15 @@ export function UiSlider({ label, ariaLabel, value, min, max, onChange, step = 1
     <div className="ui-slider-control">
       <div className="ui-slider-track" aria-hidden="true"><span className="ui-slider-fill" />{stops.map(mark => <span key={mark.value}
         className="ui-slider-mark" data-active={mark.value <= current} style={{ left: `${(mark.value - lower) / (upper - lower) * 100}%` }} />)}</div>
-      <input id={id} className="ui-slider-input" type="range" min={lower} max={upper} value={current}
+      <input ref={inputRef} id={id} className="ui-slider-input" type="range" min={lower} max={upper} value={current}
         step={snapped || step === 'any' ? 'any' : increment} disabled={disabled}
-        aria-label={ariaLabel} aria-labelledby={ariaLabel ? undefined : `${id}-label`} aria-valuetext={valueText}
+        aria-label={ariaLabel} aria-labelledby={ariaLabel ? undefined : `${id}-label`} aria-valuetext={valueText} aria-orientation="horizontal"
         onChange={event => publish(Number(event.currentTarget.value))} onKeyDown={handleKeyDown} />
       {stops.some(mark => mark.label) && <div className="ui-slider-mark-labels" aria-hidden="true">{stops.map(mark => mark.label && <span key={mark.value}
         style={{ left: `${(mark.value - lower) / (upper - lower) * 100}%` }} data-edge={mark.value === lower ? 'start' : mark.value === upper ? 'end' : undefined}>{mark.label}</span>)}</div>}
     </div>
-    <output className="ui-slider-value" htmlFor={id} aria-live="off">{output}</output>
+    {resetValue ? <button type="button" className="ui-slider-value ui-slider-reset-value" disabled={disabled}
+      aria-label={resetValue.label} title={resetValue.label} onClick={resetValue.onClick}>{output}</button>
+      : <output className="ui-slider-value" htmlFor={id} aria-live="off">{output}</output>}
   </div>;
 }
