@@ -51,10 +51,12 @@ export function DanmakuRepeatPopover({ message, chat, state, onRepeat, onOpen, a
     <Popover.Portal container={container}><UiPopoverContent returnFocusRef={triggerRef} className="mv-danmaku-repeat-popover" side="top" align="end" sideOffset={6} collisionPadding={10}
       aria-label="复读弹幕" onEscapeKeyDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
       <header><strong>复读这条弹幕</strong><Popover.Close asChild><button type="button" className="mv-icon-button" aria-label="关闭复读预览"><X size={14} /></button></Popover.Close></header>
-      <p className="mv-danmaku-repeat-preview">{message.segments?.length ? message.segments.map((part, index) => part.type === 'emote'
+      <div className="mv-danmaku-repeat-preview ui-inset-scroll-frame">
+        <div className="ui-inset-scroll" tabIndex={0}><p className="ui-inset-scroll-content">{message.segments?.length ? message.segments.map((part, index) => part.type === 'emote'
         ? <DanmakuImage key={index} {...emotePreview(part.url, part.dynamic, true)} active={active && open} text={part.text} priority="content" placeholder="skeleton"
           className={`mv-danmaku-inline-emote${part.emoteSize === 'small' ? ' mv-danmaku-inline-emote-small' : ''}`} width={part.emoteSize === 'small' ? 24 : part.width} height={part.emoteSize === 'small' ? 24 : part.height} />
-        : <span key={index}>{part.text}</span>) : message.text}</p>
+        : <span key={index}>{part.text}</span>) : message.text}</p></div>
+      </div>
       <div className="mv-danmaku-repeat-actions"><span>{needsLogin ? '连接账号后可发言' : '发送到当前直播间'}</span>
         {needsLogin ? <ActionButton onClick={() => { setOpen(false); (chat?.enable ?? chat?.openSetup)?.(); }}>连接 B站账号</ActionButton>
           : <ActionButton onClick={() => { if (canOpen && candidate.content && onRepeat(candidate.content, message.roomId)) setOpen(false); }}><Send size={12} />确认发送</ActionButton>}

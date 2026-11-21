@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="zh-CN" class="bwatch-popup"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BWatch Monitor Companion</title></head>
-<body><main>
+<body><main class="companion-scroll-frame">
   <header><span class="brand-mark" aria-hidden="true">B</span><div><h1 id="extension-name">BWatch Monitor Companion</h1><p class="subtitle">为 monitor 增强直播体验</p></div></header>
-  <div class="popup-content">
+  <div class="companion-scroll"><div class="companion-scroll-content popup-content">
   <section id="audio-permission-card" class="card" aria-labelledby="audio-permission-title" hidden>
     <div class="section-heading"><h2 id="audio-permission-title">省流量收听</h2><span class="badge">需要浏览器允许</span></div>
     <p class="muted">扩展需要访问 B站音频服务的网站权限。允许后可直接收听纯音频，无需登录或授权 B站账号。</p>
@@ -22,6 +22,6 @@
   <p id="feedback" class="feedback" role="status" hidden></p>
   <p class="note">仅听声音时自动尝试省流量音频，无需登录。账号凭据仅在本机；撤销授权只停止账号功能，不会退出 B站，也不会自动发送消息。</p>
   <p class="note"><a href="/LICENSE" target="_blank" rel="noopener noreferrer">AGPL-3.0</a> · <a href="https://github.com/dumpling233/bwatch-monitor" target="_blank" rel="noopener noreferrer">源码与构建脚本</a> · <a href="/THIRD_PARTY_LICENSES.txt" target="_blank" rel="noopener noreferrer">第三方许可</a></p>
-  </div>
+  </div></div>
   <footer class="footer-actions"><button id="login" type="button" class="text-button">打开 B站</button><button id="revoke" type="button" class="text-button danger" hidden>撤销本站授权</button></footer>
 </main><script type="module" src="./main.ts"></script></body></html>

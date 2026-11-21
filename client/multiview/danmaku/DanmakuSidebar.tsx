@@ -56,7 +56,7 @@ function StyleEditor({ value, onChange, label }: { value: DanmakuStyle; onChange
         options={danmakuTextEffects.map(effect => ({ ...effect }))} onChange={textEffect => onChange({ ...value, textEffect })} /></div>
       <div className="mv-danmaku-text-preview" aria-label={`${label}文字效果预览`}><span style={{ fontFamily: `"${value.fontFamily}", Arial, Helvetica, sans-serif`, fontWeight: value.bold ? 700 : 400, textShadow: previewShadow }}>弹幕效果预览 Aa</span></div>
     </div>
-    <div className="mv-danmaku-settings-section"><h4>内容过滤</h4><label className="mv-danmaku-blocked"><span>屏蔽词 <small>每行一个，仅普通弹幕</small></span><textarea aria-label={`${label}屏蔽词`} rows={4} maxLength={6500} placeholder="输入要屏蔽的词语" value={value.blockedWords.join('\n')}
+    <div className="mv-danmaku-settings-section"><h4>内容过滤</h4><label className="mv-danmaku-blocked"><span>屏蔽词 <small>每行一个，仅普通弹幕</small></span><textarea className="ui-scrollbar-padded" aria-label={`${label}屏蔽词`} rows={4} maxLength={6500} placeholder="输入要屏蔽的词语" value={value.blockedWords.join('\n')}
       onChange={event => onChange({ ...value, blockedWords: event.target.value.split('\n').slice(0, 100).map(word => word.slice(0, 64)) })} /></label></div>
   </div>;
 }
@@ -380,7 +380,7 @@ export function DanmakuSidebar(props: DanmakuSidebarProps) {
         </div></AnimatedCollapse>
       </div>
       <div className="mv-danmaku-log-area">
-        <div ref={attachList} className="mv-danmaku-messages" role="log" aria-live="off" aria-label={mode === 'sc' ? 'SC消息列表' : '普通弹幕列表'} tabIndex={0} data-auto-scroll={autoScroll}
+        <div ref={attachList} className="mv-danmaku-messages ui-scrollbar" role="log" aria-live="off" aria-label={mode === 'sc' ? 'SC消息列表' : '普通弹幕列表'} tabIndex={0} data-auto-scroll={autoScroll}
           onWheel={event => { if (!event.ctrlKey && event.deltaY !== 0) noteUserScroll(event.deltaY < 0 ? 'older' : 'newer'); }}
           onTouchStart={event => { stopScroll(); userScrollIntent.current = null; touchY.current = event.touches[0]?.clientY ?? null; }}
           onTouchMove={event => {
@@ -416,7 +416,7 @@ export function DanmakuSidebar(props: DanmakuSidebarProps) {
     </div>
     <div className="mv-danmaku-view mv-danmaku-settings-view" data-testid="danmaku-settings-view" aria-hidden={!showSettings} inert={!showSettings}>
       <header className="mv-danmaku-settings-heading"><button ref={backRef} className="mv-icon-button" aria-label="返回弹幕列表" title="返回弹幕列表" onClick={() => changeSettings(false)}><ArrowLeft size={16} /></button><div><strong>弹幕设置</strong><small>显示样式与账号发言</small></div></header>
-      <div className="mv-danmaku-settings" aria-label="弹幕显示设置面板">
+      <div className="mv-danmaku-settings ui-scrollbar" aria-label="弹幕显示设置面板">
         <div className="mv-danmaku-settings-section"><h4>应用范围</h4>
           <UiSelect label="弹幕设置范围" value={settingsRoom ?? 'global'} onChange={setSettingsTarget} options={[{ value: 'global', label: '全局默认样式' }, ...roomIds.map(id => ({ value: id, label: roomName(id) }))]} />
           <AnimatedCollapse open={Boolean(settingsRoom)}>{settingsRoom && <ToggleButton active={!preferences.rooms[settingsRoom]?.style} label="使用全局样式" onIcon={<SlidersHorizontal size={14} />} offIcon={<SlidersHorizontal size={14} />}

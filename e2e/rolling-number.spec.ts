@@ -5,6 +5,8 @@ test.use({ baseURL: 'http://127.0.0.1:5173/' });
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`online counts remain aligned at fractional zoom with ${reducedMotion} motion`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion });
+    await page.goto('/');
+    await expect(page.getByTestId('multiview-panel')).toBeVisible();
     await page.route('**/__rolling_number', route => route.fulfill({ contentType: 'text/html', body: `
       <html><head><meta charset="UTF-8"></head><body><div id="root"></div><script type="module">
         import React from '/node_modules/.vite/deps/react.js';

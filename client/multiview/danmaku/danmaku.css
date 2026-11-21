@@ -40,13 +40,11 @@
 .mv-danmaku-connection-notice > p { flex: 1 1 150px; margin: 0; }
 .mv-shell .mv-danmaku-connection-notice > .mv-text-button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; padding: 0; font-size: 10px; }
 .mv-danmaku-log-area { position: relative; flex: 1; min-height: 0; }
-.mv-danmaku-messages { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; scroll-behavior: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #3d4b61 transparent; padding: 0 0 8px; outline-offset: -2px; }
+.mv-danmaku-messages { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; scroll-behavior: auto; padding: 0 0 8px; outline-offset: -2px; }
 /* Native tracks use the outer 10px gutter rather than reducing message or form width. */
 .mv-danmaku-messages > .mv-danmaku-message-stack, .mv-danmaku-messages > .mv-danmaku-empty,
 .mv-danmaku-settings > * { width: calc(var(--mv-sidebar-expanded-width) - 20px); margin-left: 10px; margin-right: 0; }
 .mv-danmaku-retiring-snapshots { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; animation: mv-danmaku-clear-out 180ms ease forwards; }
-.mv-danmaku-messages::-webkit-scrollbar, .mv-danmaku-settings::-webkit-scrollbar { width: 4px; }
-.mv-danmaku-messages::-webkit-scrollbar-thumb, .mv-danmaku-settings::-webkit-scrollbar-thumb { background: #3d4b61; border-radius: 3px; }
 .mv-danmaku-message-stack { animation: mv-danmaku-context-in 200ms var(--mv-motion-easing); }
 .mv-danmaku-row { display: grid; grid-template-rows: 1fr; opacity: 1; transform: translateY(0); transition: grid-template-rows 180ms ease, opacity 140ms ease, transform 180ms var(--mv-motion-easing); }
 .mv-danmaku-row-content { min-height: 0; overflow: hidden; }
@@ -75,7 +73,7 @@
 .mv-danmaku-settings-heading > div { display: grid; gap: 3px; }
 .mv-danmaku-settings-heading strong { font-size: 12px; }
 .mv-danmaku-settings-heading small { color: var(--mv-muted); font-size: 10px; }
-.mv-danmaku-settings { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 0 16px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #3d4b61 transparent; }
+.mv-danmaku-settings { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 0 16px; overscroll-behavior: contain; }
 .mv-danmaku-settings-section { display: grid; min-width: 0; gap: 12px; }
 .mv-danmaku-settings-section > h4 { margin: 0; font-size: 10px; line-height: 1.5; color: var(--mv-muted); font-weight: 500; }
 .mv-danmaku-settings-section + .mv-danmaku-style { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--mv-border); }
@@ -103,7 +101,7 @@
 .mv-danmaku-text-preview { display: flex; justify-content: center; align-items: center; min-height: 64px; padding: 12px 6px; overflow: hidden; border: 1px solid var(--mv-border); border-radius: 6px; background: linear-gradient(120deg, #344357, #61748a); }
 .mv-danmaku-text-preview > span { max-width: 100%; overflow: hidden; white-space: nowrap; color: #ffffff; font-size: 22px; line-height: 1.25; }
 .mv-danmaku-blocked small { color: var(--mv-muted); font-size: 9px; }
-.mv-shell .mv-danmaku-blocked textarea { width: 100%; min-height: 88px; padding: 8px; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 11px; line-height: 1.6; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.mv-shell .mv-danmaku-blocked textarea { width: 100%; min-height: 88px; padding-block: 8px; padding-inline-start: 8px; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 11px; line-height: 1.6; transition: border-color 160ms ease, box-shadow 160ms ease; }
 .mv-shell .mv-danmaku-blocked textarea:focus-visible { border-color: #58a6ff; outline: none; box-shadow: 0 0 0 3px #1f6feb44; }
 .mv-shell .mv-danmaku-reset { margin-top: 14px; color: var(--mv-muted); }
 .mv-danmaku-account-settings { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--mv-border); }
@@ -121,11 +119,12 @@
 .mv-danmaku-repeat-button:hover:not(:disabled) { background: #233955; color: #dcecff; }
 .mv-danmaku-repeat-button:disabled { color: #7d8a9d; cursor: not-allowed; }
 .mv-danmaku-repeat-button:focus-visible, .mv-danmaku-repeat-popover button:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
-.mv-danmaku-repeat-popover { z-index: 45; width: min(280px, calc(100vw - 24px)); max-height: min(300px, calc(100dvh - 24px)); overflow-y: auto; box-sizing: border-box; padding: 10px; border: 1px solid #34445c; border-radius: 7px; background: #172335; color: #dce7f6; box-shadow: 0 8px 24px #0006; font-size: 12px; line-height: 1.6; }
+.mv-danmaku-repeat-popover { z-index: 45; width: min(280px, calc(100vw - 24px)); max-height: min(300px, calc(100dvh - 24px)); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; padding: 10px; border: 1px solid #34445c; border-radius: 7px; background: #172335; color: #dce7f6; box-shadow: 0 8px 24px #0006; font-size: 12px; line-height: 1.6; }
 .mv-danmaku-repeat-popover header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mv-danmaku-repeat-popover header .mv-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #b6c9e3; cursor: pointer; }
-.mv-danmaku-repeat-preview { margin: 8px 0 10px; padding: 8px; border-radius: 5px; background: #101b2b; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 150px; overflow-y: auto; }
-.mv-danmaku-repeat-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.mv-danmaku-repeat-preview { display: flex; flex-direction: column; margin: 8px 0 10px; padding: 8px; border-radius: 5px; background: #101b2b; min-height: 0; max-height: 150px; overflow: hidden; }
+.mv-danmaku-repeat-preview p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mv-danmaku-repeat-actions { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .mv-danmaku-repeat-actions > span { color: #91a7c2; font-size: 10px; }
 .mv-danmaku-repeat-actions .action-button { min-height: 30px; padding: 5px 9px; font-size: 11px; }
 .mv-danmaku-repeat-popover[data-state="open"] { animation: mv-danmaku-context-in 140ms ease; }
@@ -247,9 +246,10 @@ button.mv-danmaku-composer-notice { cursor: pointer; text-decoration: underline 
 button.mv-danmaku-composer-notice:focus-visible { outline: 2px solid #58a6ff; outline-offset: 1px; border-radius: 2px; }
 .mv-danmaku-compose-feedback[data-kind="success"] { color: #83cba5; }
 .mv-danmaku-compose-feedback[data-kind="error"], .mv-danmaku-compose-feedback[data-kind="unknown"] { color: #e0ae88; }
-.mv-danmaku-compose-detail { z-index: 40; width: min(280px, calc(100vw - 32px)); max-height: min(260px, calc(100dvh - 32px)); padding: 10px; border: 1px solid #34445c; border-radius: 7px; background: #172335; color: #dce7f6; box-shadow: 0 8px 24px #0006; overflow-y: auto; font-size: 11px; line-height: 1.6; }
+.mv-danmaku-compose-detail { z-index: 40; width: min(280px, calc(100vw - 32px)); max-height: min(260px, calc(100dvh - 32px)); padding: 10px; border: 1px solid #34445c; border-radius: 7px; background: #172335; color: #dce7f6; box-shadow: 0 8px 24px #0006; display: flex; flex-direction: column; overflow: hidden; font-size: 11px; line-height: 1.6; }
 .mv-danmaku-compose-detail header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mv-danmaku-compose-detail header button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #b6c9e3; cursor: pointer; }
+.mv-danmaku-compose-detail > .ui-inset-scroll { --ui-scroll-inset: 10px; min-height: 0; }
 .mv-danmaku-compose-detail p { margin: 5px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mv-danmaku-compose-detail button:focus-visible { outline: 2px solid #58a6ff; outline-offset: -2px; }
 .mv-danmaku-compose-detail[data-state="open"] { animation: mv-danmaku-context-in 140ms ease; }
@@ -267,7 +267,7 @@ button.mv-danmaku-composer-notice:focus-visible { outline: 2px solid #58a6ff; ou
 .mv-danmaku-emotes > header { display: flex; flex: 0 0 auto; justify-content: space-between; align-items: center; color: #b6c9e3; font-size: 11px; margin-bottom: 5px; }
 .mv-danmaku-emotes .mv-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 25px; height: 25px; border: 0; border-radius: 4px; background: transparent; color: #b6c9e3; cursor: pointer; }
 .mv-danmaku-emotes button:focus-visible { outline: 2px solid #58a6ff; outline-offset: -2px; }
-.mv-danmaku-emote-tabs { display: flex; flex: 0 0 auto; gap: 3px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid #ffffff12; scrollbar-width: thin; }
+.mv-danmaku-emote-tabs { display: flex; flex: 0 0 auto; gap: 3px; overflow-x: auto; padding-bottom: 4px; border-bottom: 1px solid #ffffff12; }
 .mv-danmaku-emote-tabs > button { display: flex; flex: 0 0 68px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 47px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: #9aaec8; font: inherit; font-size: 10px; cursor: pointer; transition: color 140ms ease, background-color 140ms ease; }
 .mv-danmaku-emote-tabs > button > span:last-child { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mv-danmaku-emote-tabs > button[aria-selected="true"] { background: #58a6ff22; color: #abd3ff; }
@@ -277,7 +277,7 @@ button.mv-danmaku-composer-notice:focus-visible { outline: 2px solid #58a6ff; ou
 .mv-danmaku-emote-group[hidden] { display: none; }
 .mv-danmaku-emote-group-title { display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto; min-height: 27px; color: #b6c9e3; }
 .mv-danmaku-emote-group-title small { color: #8195af; font-size: 10px; }
-.mv-danmaku-emote-scroll { height: 198px; flex: 0 1 198px; min-height: 44px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
+.mv-danmaku-emote-scroll { height: 198px; flex: 0 1 198px; min-height: 44px; }
 .mv-danmaku-emote-grid { display: grid; gap: 4px; padding-bottom: 4px; box-sizing: border-box; }
 .mv-danmaku-emote-grid > button { position: relative; min-width: 0; min-height: 0; padding: 3px; border: 0; border-radius: 5px; background: #ffffff05; color: #d6e1f0; font: inherit; font-size: 10px; overflow: hidden; cursor: pointer; transition: background-color 150ms ease; }
 .mv-danmaku-emote-grid > button:hover { background: #ffffff15; }

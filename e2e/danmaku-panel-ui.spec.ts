@@ -15,6 +15,8 @@ declare global {
 async function fixture(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.getByTestId('multiview-panel')).toBeVisible();
   await page.route('**/__danmaku_panel_ui', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html><head><meta charset="UTF-8"></head><body style="margin:0;background:#111827;color:#ddd"><div id="root" class="mv-shell" style="--mv-sidebar-expanded-width:min(360px,100vw);width:min(360px,100vw);height:100dvh;display:flex;border:0;border-radius:0;box-sizing:border-box"></div><script type="module">
     import React from '/node_modules/.vite/deps/react.js';
     import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';

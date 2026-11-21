@@ -18,10 +18,6 @@
   --switch-green-foreground: #7ee787;
   --amber: #d29922;
   --danger: #f85149;
-  --scroll-track: #0b1214;
-  --scroll-thumb: #304a4d;
-  --scroll-thumb-hover: #4c7070;
-  --scroll-thumb-active: #65908c;
 }
 
 .room-private-badge {
@@ -53,8 +49,7 @@
 * { box-sizing: border-box; }
 html {
   background: var(--bg);
-  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
-  scrollbar-width: thin;
+  overflow-x: clip;
   /* Keep the viewport content box width stable when a tab or scope change
      crosses the page-height threshold for a classic scrollbar. */
   scrollbar-gutter: stable;
@@ -72,86 +67,17 @@ html {
    environment owns page scrolling. Never let RemoveScroll reposition body. */
 html body[data-scroll-locked] {
   position: static !important;
-  overflow: visible !important;
+  overflow: clip visible !important;
   margin: 0 !important;
   padding: 0 !important;
 }
-@media (max-width: 760px) {
-  /* Mobile browsers generally use overlay scrollbars; do not reserve a
-     desktop-style gutter on narrow viewports. */
-  html { scrollbar-gutter: auto; }
-}
 body {
   margin: 0;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
-  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
-  scrollbar-width: thin;
 }
 
-/* The page owns the primary scroll layer. Hide native arrows and keep the
-   thumb narrow enough to stay visually subordinate to the content. */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-.sidebar::-webkit-scrollbar,
-.ui-select-viewport::-webkit-scrollbar,
-.search-results::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-.sidebar::-webkit-scrollbar-track,
-.ui-select-viewport::-webkit-scrollbar-track,
-.search-results::-webkit-scrollbar-track {
-  background: var(--scroll-track);
-}
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb,
-.sidebar::-webkit-scrollbar-thumb,
-.ui-select-viewport::-webkit-scrollbar-thumb,
-.search-results::-webkit-scrollbar-thumb {
-  min-height: 42px;
-  border: 2px solid var(--scroll-track);
-  border-radius: 999px;
-  background: var(--scroll-thumb);
-  background-clip: padding-box;
-}
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover,
-.sidebar::-webkit-scrollbar-thumb:hover,
-.ui-select-viewport::-webkit-scrollbar-thumb:hover,
-.search-results::-webkit-scrollbar-thumb:hover {
-  background: var(--scroll-thumb-hover);
-}
-html::-webkit-scrollbar-thumb:active,
-body::-webkit-scrollbar-thumb:active,
-.sidebar::-webkit-scrollbar-thumb:active,
-.ui-select-viewport::-webkit-scrollbar-thumb:active,
-.search-results::-webkit-scrollbar-thumb:active {
-  background: var(--scroll-thumb-active);
-}
-html::-webkit-scrollbar-button,
-body::-webkit-scrollbar-button,
-.sidebar::-webkit-scrollbar-button,
-.ui-select-viewport::-webkit-scrollbar-button,
-.search-results::-webkit-scrollbar-button {
-  display: none;
-}
-html::-webkit-scrollbar-corner,
-body::-webkit-scrollbar-corner,
-.sidebar::-webkit-scrollbar-corner,
-.ui-select-viewport::-webkit-scrollbar-corner,
-.search-results::-webkit-scrollbar-corner {
-  background: var(--scroll-track);
-}
-
-.sidebar,
-.ui-select-viewport,
-.search-results {
-  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
-  scrollbar-width: thin;
-}
 
 /* A drawer or popover owns its overflow when it must scroll; chart panels do
    not create an extra scrolling layer. */
@@ -359,6 +285,8 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .search-wrap input { color: var(--text); }
 .search-wrap input::placeholder, input::placeholder { color: #758b8a; opacity: 1; }
 .search-results { top: 47px; border-color: var(--border); border-radius: 6px; background: #202c2f; box-shadow: 0 18px 42px #0008; color: var(--text); }
+.search-results { scrollbar-gutter: stable; }
+.search-results :is(.search-result, .result-empty) { padding-inline-end: max(0px, calc(12px - var(--ui-scroll-inset-gutter))); }
 .search-result { border-bottom-color: var(--border-soft); transition: background .15s; }
 .search-result:hover { background: #293a3d; }
 .search-result small, .result-empty { color: var(--subtle); }
@@ -382,7 +310,16 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 }
 .ui-searchable-select-content .ui-select-search { flex: none; }
 .ui-searchable-select-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.ui-select-viewport { padding: 5px; }
+.ui-select-viewport {
+  scrollbar-gutter: stable;
+  padding: 5px;
+  padding-inline-end: max(0px, calc(8px - var(--ui-scroll-inset-gutter)));
+}
+[data-radix-select-viewport].ui-select-viewport { scrollbar-width: thin; }
+@supports selector(::-webkit-scrollbar) {
+  [data-radix-select-viewport].ui-select-viewport { scrollbar-width: auto; }
+  [data-radix-select-viewport].ui-select-viewport::-webkit-scrollbar { display: block; }
+}
 .ui-select-scroll { display: flex; justify-content: center; align-items: center; height: 22px; color: var(--muted); }
 .ui-select-item { position: relative; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 7px 32px 7px 11px; border-radius: 4px; color: var(--text); font-size: 13px; cursor: pointer; outline: none; user-select: none; }
 .ui-select-item[data-highlighted] { color: #f4fbf8; background: #365756; }
@@ -652,7 +589,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .ui-modal-layer { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 14px; background: #060c0dbf; backdrop-filter: blur(4px); animation: overlay-enter .18s ease-out; pointer-events: auto; }
 /* Position the surface with layout; its scale animation cannot override
    centering. All dialogs/sheets portal outside the application layout. */
-.ui-dialog-content { position: relative; width: min(420px, 100%); max-height: calc(100dvh - 28px); overflow-y: auto; overscroll-behavior: contain; padding: 24px; border: 1px solid #52686a; border-radius: 8px; background: #223034; box-shadow: 0 26px 80px #000b; animation: dialog-enter .18s ease-out; }
+.ui-dialog-content { position: relative; width: min(420px, 100%); max-height: calc(100dvh - 28px); overflow-y: auto; overscroll-behavior: contain; padding: 24px; padding-inline-end: calc(24px - var(--ui-scroll-inset-gutter)); scrollbar-gutter: stable; border: 1px solid #52686a; border-radius: 8px; background: #223034; box-shadow: 0 26px 80px #000b; animation: dialog-enter .18s ease-out; }
 .feature-guide-overlay { padding: 22px; }
 body .ui-select-content.ui-modal-popup, body .date-picker-popover.ui-modal-popup { z-index: 131; }
 .feature-guide { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(820px, calc(100vw - 28px)); max-height: min(760px, calc(100dvh - 32px)); overflow: hidden; border: 1px solid #52686a; border-radius: 9px; background: #161b22; box-shadow: 0 26px 80px #000b; animation: dialog-enter .18s ease-out; }
@@ -663,7 +600,7 @@ body .ui-select-content.ui-modal-popup, body .date-picker-popover.ui-modal-popup
 .feature-guide-heading p { margin: 4px 0 0; color: #8b949e; font-size: 12px; }
 .feature-guide-close { color: #8b949e; }
 .feature-guide-close:hover { color: #f0f6fc; }
-.feature-guide-body { min-height: 0; overflow-y: auto; padding: 20px 22px 22px; }
+.feature-guide-body { min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 20px 22px 22px; padding-inline-end: calc(22px - var(--ui-scroll-inset-gutter)); }
 .feature-guide-welcome { display: grid; gap: 5px; margin-bottom: 18px; color: #8b949e; font-size: 13px; line-height: 1.55; }
 .feature-guide-welcome strong { color: #c9d1d9; font-size: 15px; }
 .feature-guide-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -778,7 +715,7 @@ body .ui-select-content.ui-modal-popup, body .date-picker-popover.ui-modal-popup
   .feature-guide-overlay { place-items: end center; padding: 10px; }
   .feature-guide { width: min(100%, 560px); max-height: calc(100dvh - 20px); border-radius: 8px; }
   .feature-guide-header { padding: 15px 16px; }
-  .feature-guide-body { padding: 16px; }
+  .feature-guide-body { padding: 16px; padding-inline-end: calc(16px - var(--ui-scroll-inset-gutter)); }
   .feature-guide-modules { grid-template-columns: 1fr; gap: 9px; }
   .feature-guide-card { padding: 13px; }
   .feature-guide-footer { align-items: stretch; flex-direction: column; padding: 12px 16px 14px; }
@@ -2056,6 +1993,7 @@ body .ui-select-content.ui-modal-popup, body .date-picker-popover.ui-modal-popup
 .ui-select-mobile-options {
   max-height: min(52dvh, 370px);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
@@ -2067,6 +2005,7 @@ body .ui-select-content.ui-modal-popup, body .date-picker-popover.ui-modal-popup
   justify-content: space-between;
   gap: 10px;
   padding: 9px 10px;
+  padding-inline-end: calc(10px - var(--ui-scroll-inset-gutter));
   border: 0;
   border-bottom: 1px solid rgba(48, 54, 61, .7);
   background: transparent;
@@ -2462,6 +2401,8 @@ select {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px;
+  padding-inline-end: calc(16px - var(--ui-scroll-inset-gutter));
+  scrollbar-gutter: stable;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
@@ -3119,6 +3060,8 @@ select {
   width: min(290px, calc(100vw - 24px));
   max-height: min(560px, var(--radix-popover-content-available-height));
   padding: 14px;
+  padding-inline-end: calc(14px - var(--ui-scroll-inset-gutter));
+  scrollbar-gutter: stable;
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--text);
@@ -3363,6 +3306,7 @@ select {
   max-height: 280px;
   resize: vertical;
   padding: 12px;
+  padding-inline-end: calc(12px - var(--ui-scroll-inset-gutter));
   border: 1px solid #30363d;
   border-radius: 6px;
   background: #0d1117;

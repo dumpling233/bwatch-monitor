@@ -54,13 +54,13 @@ const EmoteGrid = React.memo(function EmoteGrid({ items, context, enabled, block
         <span className="mv-danmaku-emote-badge">{item.unlockLabel || '未解锁'}</span></>}
     </button>;
   };
-  return <div ref={setElement} className="mv-danmaku-emote-scroll" aria-label="表情列表" tabIndex={0}>
-    {virtualized ? <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+  return <div ref={setElement} className="mv-danmaku-emote-scroll ui-inset-scroll" aria-label="表情列表" tabIndex={0}>
+    {virtualized ? <div className="ui-inset-scroll-content" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
       {virtualizer.getVirtualItems().map(row => <div key={row.key} className="mv-danmaku-emote-grid" data-small={small}
         style={{ position: 'absolute', top: row.start, height: row.size, width: '100%', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {items.slice(row.index * columns, (row.index + 1) * columns).map(renderItem)}
       </div>)}
-    </div> : <div className="mv-danmaku-emote-grid" data-small={small}
+    </div> : <div className="mv-danmaku-emote-grid ui-inset-scroll-content" data-small={small}
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gridAutoRows: rowHeight - 4 }}>
       {items.map(renderItem)}
     </div>}
@@ -81,7 +81,7 @@ function RetainedEmoteGroups({ groups, context, current, blocked, onChoose, onDe
   }, [retained]);
   return <>{retained.map(id => {
     const group = groups.find(item => item.id === id)!;
-    return <div key={id} className="mv-danmaku-emote-group" role="tabpanel" aria-label={group.name} hidden={id !== current}>
+    return <div key={id} className="mv-danmaku-emote-group ui-inset-scroll-frame" role="tabpanel" aria-label={group.name} hidden={id !== current}>
       <div className="mv-danmaku-emote-group-title">{group.name}<small>{group.items.length} 个</small></div>
       {group.items.length ? <EmoteGrid items={group.items} context={context} enabled={id === current} blocked={blocked} onChoose={onChoose} onDescribe={onDescribe} /> : <p className="mv-danmaku-emote-empty">当前分组暂无表情</p>}
     </div>;

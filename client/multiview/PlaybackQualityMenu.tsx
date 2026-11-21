@@ -235,7 +235,7 @@ export function PlaybackQualityMenu({ name, quality, qualityOptions, onQualityCh
         <div ref={qualityViewRef} className="mv-playback-quality-view" aria-hidden={view !== 'quality'} inert={view !== 'quality'}>
           <button type="button" className="mv-playback-route-entry" data-menu-focusable disabled={routeUnavailable} aria-label={`${name}线路`}
             onClick={event => { if (event.detail === 0) method.current = 'keyboard'; switchView('routes'); }}><span>{shownRoute}</span><ChevronRight size={14} aria-hidden="true" /></button>
-          <div className="mv-playback-menu-options" role="menu" aria-label={`${name}清晰度选项`} aria-busy={optionsLoading}>
+          <div className="mv-playback-menu-options ui-scrollbar-padded" role="menu" aria-label={`${name}清晰度选项`} aria-busy={optionsLoading}>
             {qualityOptions.map(option => renderOption(option, quality, selectQuality))}
             {!qualityOptions.length && <p className="mv-playback-menu-empty">{emptyMessage ?? (optionsLoading ? '正在加载…' : '暂无清晰度选项')}</p>}
           </div>
@@ -243,7 +243,7 @@ export function PlaybackQualityMenu({ name, quality, qualityOptions, onQualityCh
         <div ref={routesViewRef} className="mv-playback-routes-view" aria-hidden={view !== 'routes'} inert={view !== 'routes'}>
           <button type="button" className="mv-playback-route-back" data-menu-focusable aria-label={`${name}返回清晰度`}
             onClick={event => { if (event.detail === 0) method.current = 'keyboard'; switchView('quality'); }}><ChevronLeft size={14} aria-hidden="true" /><span>线路选择</span></button>
-          <div className="mv-playback-menu-options" role="menu" aria-label={`${name}线路选项`} aria-busy={routesLoading}>
+          <div className="mv-playback-menu-options ui-scrollbar-padded" role="menu" aria-label={`${name}线路选项`} aria-busy={routesLoading}>
             {routeOptions.map(option => renderOption(option, route, selectRoute))}
             {(routesLoading || !routeOptions.length) && <p className="mv-playback-menu-empty" role="status">{routesLoading ? '正在更新线路…' : '暂无可用线路'}</p>}
           </div>

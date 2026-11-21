@@ -1,8 +1,64 @@
+.mv-mixer-room-heading .mv-room-name-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mv-mixer-room-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mv-mixer-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #273445;
+  color: var(--mv-muted);
+}
+.mv-mixer-avatar .mv-mixer-avatar-image {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.mv-mixer-avatar .mv-mixer-avatar-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mv-mixer-avatar-image[data-image-state="ready"] { opacity: 1; }
+.mv-mixer-avatar-image[data-image-state="ready"] + svg { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .mv-mixer-avatar .mv-mixer-avatar-image { transition: none; }
+}
+
 .mv-mixer-room-levels {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
 }
+.mv-mixer-master {
+  display: grid;
+}
+.mv-mixer-master > .ui-slider,
+.mv-mixer-master > .mv-icon-button {
+  grid-area: 1 / 1;
+}
+.mv-mixer-master > .mv-icon-button {
+  place-self: end start;
+  margin-block-end: 1px;
+  z-index: 1;
+}
+.mv-mixer-master .ui-slider-control {
+  margin-inline-start: 39px;
+}
+.mv-mixer-master > .ui-slider,
 .mv-mixer-room-levels .ui-slider {
   grid-template-rows: 24px auto;
 }
@@ -10,12 +66,14 @@
   padding-inline-start: 12px;
   border-inline-start: 1px solid var(--mv-border, #303a4b);
 }
+.mv-mixer-master .ui-slider-label,
 .mv-mixer-room-levels .ui-slider-label,
 .mv-room-balance .ui-slider-label {
   color: #aebbd0;
   font-size: 11px;
   white-space: nowrap;
 }
+.mv-mixer-master .ui-slider-value,
 .mv-mixer-room-levels .ui-slider-value,
 .mv-room-balance .ui-slider-value {
   color: #dfe8f5;
@@ -37,5 +95,6 @@
 }
 @media (pointer: coarse) {
   .mv-room-balance .ui-slider-reset-value { min-height: 28px; }
+  .mv-mixer-master > .ui-slider,
   .mv-mixer-room-levels .ui-slider { grid-template-rows: 28px auto; }
 }

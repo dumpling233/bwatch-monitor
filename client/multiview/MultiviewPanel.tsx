@@ -15,7 +15,7 @@ import { useLocalChat } from './useLocalChat';
 import { LocalLoginIndicator, LocalLoginSettings, localAccountSetupContext, type LocalAccountSetupFeature, type LocalAccountSetupRequest } from './LocalLoginSettings';
 import { useModalLayer } from '../modalLayer';
 import { PROJECT_NAME } from '../../shared/site';
-import { AnimatedCollapse, RollingNumber, UiSelect } from '../ui';
+import { AnimatedCollapse, RollingNumber, UiSelect, UiSlider } from '../ui';
 import { findLayout, layoutForCount, layoutGridStyle, normalizeSlotRoomIds, resetSlotRoomIds, swapRoomSlots, MULTIVIEW_LAYOUTS, SLOT_AREAS, visibleWindow, type MultiviewLayout, type RoomSlot } from './layouts';
 import { getAdaptiveGridLayout, adaptiveGridStyle, type AdaptiveGridLayout } from './adaptiveGrid';
 import { defaultRoomPreference, MAX_MULTIVIEW_ROOMS, MAX_ADAPTIVE_GRID_ROOMS, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, normalizeSidebarWidth, readMultiviewPreferences, retainAllowedRooms, writeMultiviewPreferences,
@@ -32,6 +32,7 @@ import { useSidebarRoomDrag } from './useSidebarRoomDrag';
 import { RoomPlacementSurface, PlacementUndoToast, placementDescription, type PlacementDraft } from './RoomPlacementSurface';
 import { AdaptiveGridDetails, LayoutModeControl, MonitorSettings } from './MonitorSettings';
 import { ShortcutAudioControl } from './ShortcutAudioControl';
+import { ShortcutRoomRail } from './ShortcutRoomRail';
 import { MixerRoomAudio } from './RoomAudioBalance';
 import { preparePlaybackAudio } from './playbackAudioBalance';
 import { setRoomAudioBalance, setRoomAudioVolume, toggleRoomAudio } from './audio';
@@ -857,7 +858,7 @@ export function MultiviewPanel() {
             onClick={() => toggleSidebarTab(tab.id)}><tab.icon size={17} /><span>{tab.label}</span>{tab.id === 'settings' && <LocalLoginIndicator login={localLogin} streamReady={loginStreamReady} />}</button>)}
           <button className="mv-collapse" aria-expanded={preferences.sidebarOpen} aria-label={preferences.sidebarOpen ? '收起控制栏' : '展开控制栏'} title={preferences.sidebarOpen ? '收起控制栏' : '展开控制栏'} onClick={() => updatePreferences({ sidebarOpen: !preferences.sidebarOpen })}><ChevronLeft size={17} /></button>
         </nav>
-        <div className={`mv-sidebar-content${sidebarTab === 'rooms' ? ' mv-sidebar-room-picker' : ''}${sidebarTab === 'danmaku' ? ' mv-sidebar-danmaku' : ''}${sidebarTab === 'layouts' ? ' mv-sidebar-layouts' : ''}`} inert={!preferences.sidebarOpen} aria-hidden={!preferences.sidebarOpen}>
+        <div className={`mv-sidebar-content${sidebarTab === 'rooms' ? ' mv-sidebar-room-picker' : ''}${sidebarTab === 'danmaku' ? ' mv-sidebar-danmaku' : ''}${sidebarTab === 'layouts' ? ' mv-sidebar-layouts' : ''}${sidebarTab === 'audio' || sidebarTab === 'settings' ? ' ui-scrollbar' : ''}`} inert={!preferences.sidebarOpen} aria-hidden={!preferences.sidebarOpen}>
           <RoomLibraryPicker active={sidebarTab === 'rooms' && preferences.sidebarOpen && !controlsHidden} savedRooms={savedRooms}
             following={followingView} onFollowingActiveChange={setFollowingBrowse}
             onOpenFollowingSetup={() => openAccountSetup('following')}
@@ -880,10 +881,10 @@ export function MultiviewPanel() {
             onAddLive={addLiveRooms} onClearWatching={() => { captureLayout(); setPreferences(value => retainAllowedRooms(value, new Set())); setFocusedRoomId(null); }}
             onDragStart={(event, id) => sidebarDrag.onPointerDown(event, id)}
             onClickCapture={event => { if (event.detail > 0 && sidebarDrag.shouldSuppressClick()) { event.preventDefault(); event.stopPropagation(); } }} />
-          {sidebarTab === 'layouts' && <section className="mv-layout-panel">
+          {sidebarTab === 'layouts' && <section className="mv-layout-panel ui-inset-scroll-frame">
             <div className="mv-sidebar-heading"><strong>画面布局</strong></div>
             <LayoutModeControl enabled={preferences.adaptiveGridEnabled} onChange={toggleAdaptiveGrid} />
-            <div className="mv-layout-list-scroll" aria-label="布局选项">
+            <div className="mv-layout-list-scroll ui-inset-scroll" aria-label="布局选项">
               <AnimatedCollapse open={preferences.adaptiveGridEnabled}>
                 <AdaptiveGridDetails roomCount={selectedIds.length} maxRooms={MAX_ADAPTIVE_GRID_ROOMS} />
               </AnimatedCollapse>
@@ -896,10 +897,19 @@ export function MultiviewPanel() {
           </section>}
           {sidebarTab === 'audio' && <>
             <div className="mv-sidebar-heading"><strong>混音器</strong><small>多路混音</small></div>
-            <div className="mv-mixer-master"><label>总音量 <b>{Math.round(preferences.masterVolume * 100)}%</b></label><div className="mv-volume-row"><button className="mv-icon-button" aria-label={masterSilenced ? '混音器取消全部静音' : '混音器全部静音'} aria-pressed={masterSilenced} onClick={toggleMasterAudio}>{masterSilenced ? <VolumeX /> : <Volume2 />}</button><input type="range" min="0" max="1" step="0.01" aria-label="总音量" value={preferences.masterVolume} onChange={event => changeMasterVolume(Number(event.target.value))} /></div></div>
+            <div className={`mv-mixer-master${masterSilenced ? '' : ' mv-audible'}`}>
+              <button type="button" className="mv-icon-button" aria-label={masterSilenced ? '混音器取消全部静音' : '混音器全部静音'}
+                aria-pressed={masterSilenced} onClick={toggleMasterAudio}>{masterSilenced ? <VolumeX /> : <Volume2 />}</button>
+              <UiSlider label="总音量" min={0} max={1} step={0.01} value={preferences.masterVolume}
+                formatValue={value => `${Math.round(value * 100)}%`} onChange={changeMasterVolume} />
+            </div>
             <div className="mv-mixer-rooms">{selectedIds.map(id => {
               const room = roomById.get(id)!, pref = roomPreference(id), muted = effectiveMuted(id);
-              return <MixerRoomAudio key={id} name={room.anchorName} volume={pref.volume} muted={muted}
+              const uid = room.uid != null && Number.isSafeInteger(room.uid) && room.uid > 0 ? String(room.uid) : undefined;
+              const resolveProfile = localChat.chat.profile;
+              return <MixerRoomAudio key={id} name={room.anchorName} uid={uid} volume={pref.volume} muted={muted}
+                avatarScope={`${uid ?? ''}:${localChat.scope}:${resolveProfile ? 'profile' : ''}`}
+                active={preferences.sidebarOpen && !controlsHidden && pageVisible} resolveProfile={resolveProfile}
                 balance={pref.balance} balanceUnavailable={balanceUnavailableRooms.has(id)}
                 onSelect={() => selectRoom(id)} onToggle={() => toggleAudio(id)}
                 onVolumeChange={volume => changeVolume(id, volume)} onBalanceChange={balance => changeBalance(id, balance)} />;
@@ -1021,14 +1031,14 @@ export function MultiviewPanel() {
                 <button className="mv-icon-button" aria-label={`${room.anchorName}恢复停滞播放`} title="重新连接此路" onClick={() => reconnect(id)}><RefreshCw size={13} /></button>
               </div>}
               {state !== 'playing' && state !== 'stalled' && <div className={`mv-player-state mv-player-state-${state}`} data-backdrop={showBackdrop} aria-live="polite">
-                <div className="mv-player-state-content" tabIndex={state === 'autoplay-blocked' ? -1 : 0} aria-label={`${room.anchorName || id}播放状态详情`}
+                <div className={`mv-player-state-content${state === 'autoplay-blocked' ? '' : ' ui-scrollbar-padded'}`} tabIndex={state === 'autoplay-blocked' ? -1 : 0} aria-label={`${room.anchorName || id}播放状态详情`}
                   onPointerDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>
                   {showBackdrop && state !== 'autoplay-blocked' && <strong className="mv-player-state-anchor">{room.anchorName || '未知主播'}</strong>}
                   <span aria-hidden="true">{state === 'loading' || state === 'retrying' ? <RefreshCw className="mv-spin" size={22} /> : state === 'paused' ? <Pause size={23} /> : state === 'autoplay-blocked' ? <Play size={23} /> : <Radio size={23} />}</span>
                   <strong>{state === 'autoplay-blocked' ? '浏览器已阻止自动播放' : !active && !paused && room.status !== 'offline' ? '隐藏画面已停止' : statusLabel[state]}</strong>
                   {playback?.message && room.status !== 'offline' && state !== 'autoplay-blocked' && <small>{playback.message}</small>}
                 </div>
-                {(state === 'error' || (state === 'autoplay-blocked' && autoplayResumers[id]) || audioOnly) && <div className="mv-player-state-actions">
+                {(state === 'error' || (state === 'autoplay-blocked' && autoplayResumers[id]) || audioOnly) && <div className="mv-player-state-actions ui-scrollbar-padded">
                   {state === 'error' && <button onClick={() => reconnect(id)} aria-label={`${room.anchorName}重新连接`}>重新连接</button>}
                   {state === 'autoplay-blocked' && autoplayResumers[id] && <button onClick={() => autoplayResumers[id]?.()} aria-label={`${room.anchorName}恢复播放`}><Play size={14} />恢复播放</button>}
                   {audioOnly && state !== 'autoplay-blocked' && <button type="button" className="mv-audio-only-restore" aria-label={`${room.anchorName}播放画面`} onClick={() => setMediaMode(id, 'video')}><Video size={15} />播放画面</button>}
@@ -1090,12 +1100,12 @@ export function MultiviewPanel() {
             }}><Play size={14} aria-hidden="true" /><span>恢复全部播放（{blockedRoomIds.length}）</span></button>}
           <ShortcutAudioControl name="总音量" variant="master" volume={preferences.masterVolume} muted={masterSilenced} idleHidden={controlsHidden}
             onToggle={toggleMasterAudio} onChange={changeMasterVolume} popupSide={preferences.switchbarTop ? 'bottom' : 'top'} />
-          <div className="mv-shortcut-rooms">{selectedIds.map(id => {
+          <ShortcutRoomRail hidden={controlsHidden}>{selectedIds.map(id => {
           const name = roomById.get(id)?.anchorName || id, muted = effectiveMuted(id), pref = roomPreference(id);
           return <span key={id} data-mv-motion={`switch-${id}`} data-audio-room-id={id} className="mv-audio-shortcut"><ShortcutAudioControl name={name} volume={pref.volume} muted={muted} idleHidden={controlsHidden}
             roomBalance={{ balance: pref.balance, balanceUnavailable: balanceUnavailableRooms.has(id), onBalanceChange: balance => changeBalance(id, balance) }}
             onToggle={() => toggleAudio(id)} onChange={volume => changeVolume(id, volume)} popupSide={preferences.switchbarTop ? 'bottom' : 'top'} /></span>;
-          })}</div>
+          })}</ShortcutRoomRail>
           {selectedIds.length > 1 && (focusId || screenMode !== 'desktop') && <UiSelect className="mv-view-select" label="当前观看直播间" value={focusId ?? (activeId && visibleSet.has(activeId) ? activeId : visibleIds[0]) ?? ''} onChange={selectRoom}
             options={selectedIds.map(id => ({ value: id, label: roomById.get(id)?.anchorName || id }))} />}
           {focusId && <button className="mv-icon-button mv-restore-layout" onClick={() => toggleFocus(focusId)} aria-label="还原多视角布局" title="还原多视角布局"><Minimize2 size={15} /></button>}

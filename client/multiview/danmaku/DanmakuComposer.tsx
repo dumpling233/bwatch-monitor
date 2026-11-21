@@ -59,9 +59,10 @@ function ComposerFeedback({ text, kind, active }: { text: string; kind?: Feedbac
       setOpen(value);
     }}>
       <Popover.Trigger asChild><button ref={triggerRef} type="button" className="mv-danmaku-composer-notice" title={text} aria-label="查看发言提示详情">{text}</button></Popover.Trigger>
-      <Popover.Portal container={container}><UiPopoverContent returnFocusRef={triggerRef} className="mv-danmaku-compose-detail" side="top" align="end" sideOffset={8} collisionPadding={10} aria-label="发言提示详情"
+      <Popover.Portal container={container}><UiPopoverContent returnFocusRef={triggerRef} className="mv-danmaku-compose-detail ui-inset-scroll-frame" side="top" align="end" sideOffset={8} collisionPadding={10} aria-label="发言提示详情"
         onEscapeKeyDown={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
-        <header><strong>发言提示</strong><Popover.Close asChild><button type="button" aria-label="关闭发言提示"><X size={14} /></button></Popover.Close></header><p>{text}</p>
+        <header><strong>发言提示</strong><Popover.Close asChild><button type="button" aria-label="关闭发言提示"><X size={14} /></button></Popover.Close></header>
+        <div className="ui-inset-scroll" tabIndex={0}><p className="ui-inset-scroll-content">{text}</p></div>
       </UiPopoverContent></Popover.Portal>
     </Popover.Root> : <span className="mv-danmaku-composer-notice">{text}</span>}
   </div>;

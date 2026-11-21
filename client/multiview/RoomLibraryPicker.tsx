@@ -14,10 +14,20 @@ import './roomLibraryPicker.css';
 type Collection = 'mine' | 'following';
 type View = Collection | 'watching';
 type Filters = { search: string; status: string; group: string };
+const ROOM_COLLECTION_STORAGE_KEY = 'bwatch-monitor:room-collection:v1';
 const emptyFilters = (): Filters => ({ search: '', status: 'all', group: 'all' });
 const followingStatusOrder = { live: 0, unknown: 1, offline: 2 };
 const trustedAudience = (room: MonitorRoomDescriptor) => !room.onlineStale && room.onlineLastSuccessAt !== undefined
   && room.onlineLastSuccessAt > 0 && room.online !== null && Number.isSafeInteger(room.online) && room.online >= 0 ? room.online : null;
+
+function initialCollection(): Collection {
+  try {
+    const saved = localStorage.getItem(ROOM_COLLECTION_STORAGE_KEY);
+    if (saved === 'mine' || saved === 'following') return saved;
+  } catch { /* Browser storage can be unavailable. */ }
+  return 'mine';
+}
+
 interface Props {
   active: boolean; savedRooms: MonitorRoomDescriptor[];
   following: FollowingRoomsView;
@@ -40,7 +50,7 @@ interface Props {
 /** Directory browsing, personal saves and watching are separate views of the
  * same room identity. This component owns presentation, never media sessions. */
 export function RoomLibraryPicker(props: Props) {
-  const [collection, setCollection] = useState<Collection>('mine');
+  const [collection, setCollection] = useState(initialCollection);
   const [watching, setWatching] = useState(false);
   const [filters, setFilters] = useState<Record<Collection, Filters>>({ mine: emptyFilters(), following: emptyFilters() });
   const [addOpen, setAddOpen] = useState(false);
@@ -81,7 +91,11 @@ export function RoomLibraryPicker(props: Props) {
     if (props.draggingId) return;
     scrollPositions.current[view] = scroller.current?.scrollTop ?? 0;
     setWatching(next === 'watching');
-    if (next !== 'watching') setCollection(next);
+    if (next !== 'watching' && next !== collection) {
+      setCollection(next);
+      try { localStorage.setItem(ROOM_COLLECTION_STORAGE_KEY, next); }
+      catch { /* The selection still applies to the current page. */ }
+    }
     setHighlight(null); setRequestMessage('');
   };
   useLayoutEffect(() => { if (scroller.current) scroller.current.scrollTop = scrollPositions.current[view]; }, [view]);
@@ -293,7 +307,7 @@ function FollowingCandidateList({ rooms, active, dragging, restoreTop, scroller,
           : !following.complete ? '关注列表尚未读取完整' : filtered ? '没有匹配的关注直播间'
             : following.unmappedCount > 0 ? '暂未找到关注的直播间' : '暂无关注的直播间';
   return <div className="mv-library-list-frame mv-following-frame">
-    <div ref={attachScroller} className="mv-room-candidates mv-library-list mv-following-list"
+    <div ref={attachScroller} className="mv-room-candidates mv-library-list mv-following-list ui-scrollbar"
       aria-label="B站关注直播间列表" data-placement-scroll onScroll={event => {
         const top = event.currentTarget.scrollTop;
         if (adjustedTop.current !== null && Math.abs(adjustedTop.current - top) < 1) adjustedTop.current = null;
@@ -390,7 +404,7 @@ function AnimatedCandidateList({ view, rooms, active, highlight, restoreTop, scr
   }, []);
   useEffect(() => { if (!active) { clearMotion(); pending.current = null; setExits([]); } }, [active]);
   return <div ref={frame} className="mv-library-list-frame">
-    <div ref={scroller} className="mv-room-candidates mv-library-list" aria-label={label} data-placement-scroll onScroll={event => onScroll(event.currentTarget.scrollTop)}>
+    <div ref={scroller} className="mv-room-candidates mv-library-list ui-scrollbar" aria-label={label} data-placement-scroll onScroll={event => onScroll(event.currentTarget.scrollTop)}>
       <div className="mv-library-list-content">
         {displayed.rooms.length ? displayed.rooms.map(room => <div key={`${displayed.view}:${room.roomId}`} ref={node => { if (node) rows.current.set(room.roomId, node); else rows.current.delete(room.roomId); }}
           className="mv-library-card-wrap" data-highlighted={highlight === room.roomId}>{renderRoom(displayed.view === view ? latest.get(room.roomId) ?? room : room)}</div>) : empty}

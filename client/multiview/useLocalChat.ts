@@ -149,6 +149,7 @@ export function useLocalChat(roomSources: Readonly<Record<string, RoomSource>>, 
         bridge.bootstrap(roomId, 'anonymous', undefined, undefined, force, signal),
       () => scopeRef.current === expectedScope);
   }, [bridge]);
+  const profile = useCallback((uid: string, signal: AbortSignal) => bridge.profile(uid, signal), [bridge]);
   const chat = useMemo(() => ({
     available,
     enabled: login.chatEnabled === true && login.connected,
@@ -199,10 +200,10 @@ export function useLocalChat(roomSources: Readonly<Record<string, RoomSource>>, 
         return await bridge.result(operationId, signal);
       } finally { release(); }
     },
-    profile: login.capabilities?.includes('profile') ? (id: string, signal: AbortSignal) => bridge.profile(id, signal) : undefined,
+    profile: login.capabilities?.includes('profile') ? profile : undefined,
     rememberAvatar: (id: string, face: string) => bridge.rememberAvatar(id, face),
     rejectAvatar: (id: string, face: string) => bridge.rejectAvatar(id, face),
     medals,
-  }), [bridge, medals, autoMedal, available, login.chatEnabled, login.danmakuEnabled, login.connected, login.chatWanted, login.authSessionKey, login.capabilities, accountUid, authEpoch]);
+  }), [bridge, profile, medals, autoMedal, available, login.chatEnabled, login.danmakuEnabled, login.connected, login.chatWanted, login.authSessionKey, login.capabilities, accountUid, authEpoch]);
   return { chat, local, scope, ready: login.initialReady, bootstrap };
 }
